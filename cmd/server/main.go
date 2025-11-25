@@ -69,11 +69,6 @@ func main() {
 	}
 	defer operationsPool.Close()
 
-	if err := db.EnsureOperationsTenantProvisioning(ctx, operationsPool); err != nil {
-		logger.Error("failed to ensure operations tenant provisioning procedure", slog.Any("error", err))
-		os.Exit(1)
-	}
-
 	// Create tenant session manager with both pools
 	tenantSessions := db.NewTenantSessionManager(tenantPool, operationsPool, "operations")
 

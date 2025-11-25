@@ -1,16 +1,16 @@
 openapi: 3.0.3
 info:
-  title: Frego Finance API
-  description: Finance module API for Frego ERP - handles AR, AP, and GL operations
+  title: Frego Operations API
+  description: Operations module API for Frego ERP
   version: 1.0.0
   contact:
     name: Frego Support
     email: support@frego.com
 
 servers:
-  - url: http://localhost:8080/finance/api/v1
+  - url: http://localhost:8080/operations/api/v1
     description: Local development
-  - url: https://api.myfrego.com/finance/api/v1
+  - url: https://api.myfrego.com/operations/api/v1
     description: Production
 
 security:
@@ -239,9 +239,9 @@ paths:
 
   /tenants/provision:
     post:
-      summary: Provision finance schema for a tenant
+      summary: Provision operations schema for a tenant
       operationId: provisionTenant
-      description: Creates finance schema for the tenant. Schema name is computed from displayName with 'fin_' prefix, or generated from tenantId if displayName is not provided.
+      description: Creates operations schema for the tenant. Schema name is computed from displayName with 'ops_' prefix, or generated from tenantId if displayName is not provided.
       security: []
       parameters:
         - name: Secret

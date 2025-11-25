@@ -94,11 +94,13 @@ func BuildRouter(
 	}
 
 	// API routes with auth and tenant middleware
-	r.Group(func(r chi.Router) {
-		r.Use(authMiddleware)
-		r.Use(tenantMiddleware)
-		r.Mount("/finance/api/v1", apiHandler)
-	})
+	if apiHandler != nil {
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware)
+			r.Use(tenantMiddleware)
+			r.Mount("/operations/api/v1", apiHandler)
+		})
+	}
 
 	return r
 }
