@@ -95,25 +95,6 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 		}
 	}
 
-	// Fetch incoterms
-	incotermRows, err := s.repo.ListIncotermLookups(ctx)
-	if err != nil {
-		logger.Error("failed to list incoterm lookups", slog.Any("error", err))
-		return result, fmt.Errorf("operations: list incoterms: %w", err)
-	}
-	for _, row := range incotermRows {
-		version := int32(0)
-		if row.Version.Valid {
-			version = int32(row.Version.Int16)
-		}
-		result.Incoterms = append(result.Incoterms, operationsdto.IncotermLookup{
-			ID:      row.ID,
-			Code:    row.Code,
-			Name:    common.PgtypeTextToString(row.Name),
-			Version: version,
-		})
-	}
-
 	// Fetch job statuses
 	jobStatusRows, err := s.repo.ListJobStatusLookups(ctx)
 	if err != nil {
@@ -123,7 +104,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range jobStatusRows {
 		desc := common.PgtypeTextToStringPtr(row.JobStatusDesc)
 		result.JobStatuses = append(result.JobStatuses, operationsdto.JobStatus{
-			JobStatusID:   row.JobStatusID,
+			JobStatusID:   row.JobStatusID.Int16,
 			JobStatusName: common.PgtypeTextToString(row.JobStatusName),
 			JobStatusDesc: desc,
 		})
@@ -138,7 +119,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range docStatusRows {
 		desc := common.PgtypeTextToStringPtr(row.DocStatusDesc)
 		result.DocumentStatuses = append(result.DocumentStatuses, operationsdto.DocumentStatus{
-			DocStatusID:   row.DocStatusID,
+			DocStatusID:   row.DocStatusID.Int16,
 			DocStatusName: common.PgtypeTextToString(row.DocStatusName),
 			DocStatusDesc: desc,
 		})
@@ -153,7 +134,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range priorityRows {
 		result.PriorityLevels = append(result.PriorityLevels, operationsdto.PriorityLevel{
 			PriorityID:    row.PriorityID,
-			PriorityLabel: common.PgtypeTextToString(row.PriorityLabel),
+			PriorityLabel: row.PriorityLabel,
 		})
 	}
 
@@ -166,7 +147,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range roleRows {
 		desc := common.PgtypeTextToStringPtr(row.RoleDesc)
 		result.RoleDetails = append(result.RoleDetails, operationsdto.RoleDetails{
-			RoleID:   row.RoleID,
+			RoleID:   row.RoleID.Int16,
 			RoleName: common.PgtypeTextToString(row.RoleName),
 			RoleDesc: desc,
 		})
@@ -289,7 +270,7 @@ func (s *Service) ListJobs(ctx context.Context, status, jobType *string, custome
 			SourceState:        common.PgtypeTextToStringPtr(row.SourceState),
 			SourceCountry:      common.PgtypeTextToStringPtr(row.SourceCountry),
 			Status:             common.PgtypeTextToStringPtr(row.Status),
-			PriorityLevel:      common.PgtypeTextToStringPtr(row.PriorityLevel),
+			PriorityLevel:      int2ToStringPtr(row.PriorityLevel),
 			SalesExecutive: operationsdto.Employee{
 				ID:    row.SalesExecutiveID.Bytes,
 				Name:  common.PgtypeTextToString(row.SalesExecutiveName),
@@ -370,7 +351,7 @@ func (s *Service) GetJob(ctx context.Context, jobID uuid.UUID) (operationsdto.Jo
 		AgentDeadline:     timeFromPgtype(job.AgentDeadline),
 		ShipmentReadyDate: timeFromPgtype(job.ShipmentReadyDate),
 		Status:            common.PgtypeTextToStringPtr(job.Status),
-		PriorityLevel:     common.PgtypeTextToStringPtr(job.PriorityLevel),
+		PriorityLevel:     int2ToStringPtr(job.PriorityLevel),
 		CreatedAt:         job.CreatedAt.Time,
 		CreatedBy:         common.PgtypeTextToStringPtr(job.CreatedBy),
 		ModifiedAt:        timeFromPgtype(job.ModifiedAt),
@@ -463,7 +444,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 		AgentDeadline:      timestampFromTime(input.AgentDeadline),
 		ShipmentReadyDate:  timestampFromTime(input.ShipmentReadyDate),
 		Status:             repository.NullTextFromString(input.Status),
-		PriorityLevel:      repository.NullTextFromString(input.PriorityLevel),
+		PriorityLevel:      int2FromString(input.PriorityLevel),
 		Actor:              pgtype.Text{String: input.CreatedBy, Valid: true},
 	}
 
@@ -500,7 +481,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create carrier
 	if input.Carrier != nil {
 		carrierParams := sqlc.CreateJobCarrierParams{
-			JobID:                  uuidToPgtype(job.ID),
+			JobID:                  job.ID,
 			CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
 			CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
 			VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
@@ -529,8 +510,8 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			JobID:       job.ID,
 			DocTypeCode: repository.NullTextFromString(docInput.DocTypeCode),
 			DocNumber:   repository.NullTextFromString(docInput.DocNumber),
-			IssuedAt:    repository.NullTextFromString(docInput.IssuedAt),
-			IssuedDate:  timestampFromTime(docInput.IssuedDate),
+			IssuedAt:    timestampFromString(docInput.IssuedAt),
+			IssuedDate:  dateFromTime(docInput.IssuedDate),
 			Description: repository.NullTextFromString(docInput.Description),
 			FileKey:     repository.NullTextFromString(docInput.FileKey),
 			FileRegion:  repository.NullTextFromString(docInput.FileRegion),
@@ -545,7 +526,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create billing entries
 	for _, billInput := range input.Billing {
 		billParams := sqlc.CreateJobBillingParams{
-			JobID:                 uuidToPgtype(job.ID),
+			JobID:                 job.ID,
 			ActivityType:          repository.NullTextFromString(billInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(billInput.ActivityCode),
 			BillingPartyID:        repository.NullUUIDFromUUID(billInput.BillingPartyID),
@@ -568,7 +549,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create provision entries
 	for _, provInput := range input.Provisions {
 		provParams := sqlc.CreateJobProvisionParams{
-			JobID:                 uuidToPgtype(job.ID),
+			JobID:                 job.ID,
 			ActivityType:          repository.NullTextFromString(provInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(provInput.ActivityCode),
 			CostPartyID:           repository.NullUUIDFromUUID(provInput.CostPartyID),
@@ -592,7 +573,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create tracking
 	if input.Tracking != nil {
 		trackParams := sqlc.UpsertJobTrackingParams{
-			JobID:          uuidToPgtype(job.ID),
+			JobID:          job.ID,
 			EtdDate:        timestampFromTime(input.Tracking.ETDDate),
 			EtaDate:        timestampFromTime(input.Tracking.ETADate),
 			AtdDate:        timestampFromTime(input.Tracking.ATDDate),
@@ -645,7 +626,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 		AgentDeadline:      timestampFromTime(input.AgentDeadline),
 		ShipmentReadyDate:  timestampFromTime(input.ShipmentReadyDate),
 		Status:             repository.NullTextFromString(input.Status),
-		PriorityLevel:      repository.NullTextFromString(input.PriorityLevel),
+		PriorityLevel:      int2FromString(input.PriorityLevel),
 		Actor:              pgtype.Text{String: input.ModifiedBy, Valid: true},
 	}
 
@@ -683,7 +664,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	if input.Carrier != nil {
 		// Try to update existing carrier first
 		updateParams := sqlc.UpdateJobCarrierParams{
-			JobID:                  uuidToPgtype(jobID),
+			JobID:                  jobID,
 			CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
 			CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
 			VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
@@ -705,7 +686,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			// If update fails (no rows), create new carrier
 			if errors.Is(err, pgx.ErrNoRows) {
 				createParams := sqlc.CreateJobCarrierParams{
-					JobID:                  uuidToPgtype(jobID),
+					JobID:                  jobID,
 					CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
 					CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
 					VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
@@ -738,8 +719,8 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			JobID:       jobID,
 			DocTypeCode: repository.NullTextFromString(docInput.DocTypeCode),
 			DocNumber:   repository.NullTextFromString(docInput.DocNumber),
-			IssuedAt:    repository.NullTextFromString(docInput.IssuedAt),
-			IssuedDate:  timestampFromTime(docInput.IssuedDate),
+			IssuedAt:    timestampFromString(docInput.IssuedAt),
+			IssuedDate:  dateFromTime(docInput.IssuedDate),
 			Description: repository.NullTextFromString(docInput.Description),
 			FileKey:     repository.NullTextFromString(docInput.FileKey),
 			FileRegion:  repository.NullTextFromString(docInput.FileRegion),
@@ -754,7 +735,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	// Update billing if provided
 	for _, billInput := range input.Billing {
 		billParams := sqlc.CreateJobBillingParams{
-			JobID:                 uuidToPgtype(jobID),
+			JobID:                 jobID,
 			ActivityType:          repository.NullTextFromString(billInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(billInput.ActivityCode),
 			BillingPartyID:        repository.NullUUIDFromUUID(billInput.BillingPartyID),
@@ -777,7 +758,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	// Update provisions if provided
 	for _, provInput := range input.Provisions {
 		provParams := sqlc.CreateJobProvisionParams{
-			JobID:                 uuidToPgtype(jobID),
+			JobID:                 jobID,
 			ActivityType:          repository.NullTextFromString(provInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(provInput.ActivityCode),
 			CostPartyID:           repository.NullUUIDFromUUID(provInput.CostPartyID),
@@ -801,7 +782,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	// Update tracking if provided
 	if input.Tracking != nil {
 		trackParams := sqlc.UpsertJobTrackingParams{
-			JobID:          uuidToPgtype(jobID),
+			JobID:          jobID,
 			EtdDate:        timestampFromTime(input.Tracking.ETDDate),
 			EtaDate:        timestampFromTime(input.Tracking.ETADate),
 			AtdDate:        timestampFromTime(input.Tracking.ATDDate),
@@ -950,8 +931,8 @@ func documentFromSqlc(doc sqlc.OpsJobDocument) operationsdto.Document {
 		ID:          doc.ID,
 		DocTypeCode: common.PgtypeTextToStringPtr(doc.DocTypeCode),
 		DocNumber:   common.PgtypeTextToStringPtr(doc.DocNumber),
-		IssuedAt:    common.PgtypeTextToStringPtr(doc.IssuedAt),
-		IssuedDate:  timeFromPgtype(doc.IssuedDate),
+		IssuedAt:    timestampToStringPtr(doc.IssuedAt),
+		IssuedDate:  timeFromDate(doc.IssuedDate),
 		Description: common.PgtypeTextToStringPtr(doc.Description),
 		FileKey:     common.PgtypeTextToStringPtr(doc.FileKey),
 		FileRegion:  common.PgtypeTextToStringPtr(doc.FileRegion),
@@ -1044,4 +1025,50 @@ func float64FromNumeric(n pgtype.Numeric) *float64 {
 		return &f.Float64
 	}
 	return nil
+}
+
+func timeFromDate(d pgtype.Date) *time.Time {
+	if !d.Valid {
+		return nil
+	}
+	return &d.Time
+}
+
+func int2FromString(s *string) pgtype.Int2 {
+	if s == nil {
+		return pgtype.Int2{Valid: false}
+	}
+	var i int16
+	_, err := fmt.Sscanf(*s, "%d", &i)
+	if err != nil {
+		return pgtype.Int2{Valid: false}
+	}
+	return pgtype.Int2{Int16: i, Valid: true}
+}
+
+func int2ToStringPtr(i pgtype.Int2) *string {
+	if !i.Valid {
+		return nil
+	}
+	s := fmt.Sprintf("%d", i.Int16)
+	return &s
+}
+
+func timestampFromString(s *string) pgtype.Timestamptz {
+	if s == nil {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	t, err := time.Parse(time.RFC3339, *s)
+	if err != nil {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+func timestampToStringPtr(t pgtype.Timestamptz) *string {
+	if !t.Valid {
+		return nil
+	}
+	s := t.Time.Format(time.RFC3339)
+	return &s
 }

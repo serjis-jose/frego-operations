@@ -39,7 +39,7 @@ func TenantMiddleware(logger *slog.Logger, pool *pgxpool.Pool, defaultTenant uui
 			var exists bool
 			err = pool.QueryRow(r.Context(), `
 				SELECT EXISTS (
-					SELECT 1 FROM tenant_registry 
+					SELECT 1 FROM registry.tenant_registry 
 					WHERE tenant_id = $1 AND is_active = true
 				)
 			`, tenantID).Scan(&exists)

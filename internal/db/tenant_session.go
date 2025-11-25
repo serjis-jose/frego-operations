@@ -74,7 +74,7 @@ func (m *TenantSessionManager) getTenantSchema(ctx context.Context, tenantID uui
 	// Query shared tenant registry
 	query := fmt.Sprintf(`
 		SELECT %s 
-		FROM tenant_registry 
+		FROM registry.tenant_registry 
 		WHERE tenant_id = $1 
 		  AND is_active = true
 		  AND $2 = ANY(modules_subscribed)
@@ -99,7 +99,7 @@ func (m *TenantSessionManager) getTenantSchema(ctx context.Context, tenantID uui
 func (m *TenantSessionManager) VerifyTenantAccess(ctx context.Context, tenantID uuid.UUID) error {
 	var hasAccess bool
 	err := m.tenantPool.QueryRow(ctx, `
-		SELECT tenant_has_module($1, $2)
+		SELECT registry.tenant_has_module($1, $2)
 	`, tenantID, m.serviceName).Scan(&hasAccess)
 
 	if err != nil {
@@ -160,4 +160,36 @@ type TenantInfo struct {
 	ContactEmail      *string
 	ModulesSubscribed []string
 	IsActive          bool
+}
+
+// WithTenantTx executes a function within a tenant-scoped transaction
+func (m *TenantSessionManager) WithTenantTx(ctx context.Context, fn func(context.Context, pgx.Tx) error) error {
+	tenantID, ok := ctx.Value("tenant_id").(uuid.UUID)
+	if !ok {
+		return fmt.Errorf("tenant ID not found in context")
+	}
+
+	conn, err := m.GetSession(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	defer m.ReleaseSession(conn)
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err := fn(ctx, tx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
 }

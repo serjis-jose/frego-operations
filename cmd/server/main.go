@@ -97,7 +97,7 @@ func main() {
 		}
 		documentUploader = uploader
 	}
-	_ = documentUploader // Silence unused variable error until handler is wired
+	_ = documentUploader
 
 	operationsRepo := operationsrepo.NewWithSessions(tenantSessions)
 	operationsService := operationsservice.New(operationsRepo)

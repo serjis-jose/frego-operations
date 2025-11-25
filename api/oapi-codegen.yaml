@@ -4,4 +4,3 @@ generate:
   models: true
   strict-server: true
 output: internal/api/operations.gen.go
-output-config: internal/api/operations.gen.cfg.yaml

@@ -48,68 +48,10 @@ type ProvisionTenantResponse struct {
 
 // ProvisionTenant handles the request to provision a finance schema for a tenant
 func (h *TenantHandler) ProvisionTenant(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implement internal secret validation for service-to-service authentication
-	// Temporarily skipped for development - should validate Secret header matches internalSecret
-	// if h.internalSecret != "" {
-	// 	providedSecret := r.Header.Get("Secret")
-	// 	if providedSecret != h.internalSecret {
-	// 		h.logger.Warn("invalid internal secret provided",
-	// 			slog.String("remote_addr", r.RemoteAddr))
-	// 		http.Error(w, "unauthorized", http.StatusUnauthorized)
-	// 		return
-	// 	}
-	// }
-
-	var req ProvisionTenantRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Error("invalid request body", slog.Any("error", err))
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if req.TenantID == uuid.Nil {
-		http.Error(w, "tenantId is required", http.StatusBadRequest)
-		return
-	}
-
-	displayName := ""
-	if req.DisplayName != nil {
-		displayName = *req.DisplayName
-	}
-
-	h.logger.Info("received finance provisioning request",
-		slog.String("tenant_id", req.TenantID.String()),
-		slog.String("display_name", displayName))
-
-	// Set actor for database operations if provided
-	ctx := r.Context()
-	if req.Actor != nil && *req.Actor != "" {
-		// Set actor in context for database operations
-		// This can be used by the service layer if needed
-		ctx = r.Context()
-	}
-
-	err := h.tenantService.ProvisionTenant(ctx, req.TenantID, displayName)
-	if err != nil {
-		h.logger.Error("failed to provision finance tenant schema",
-			slog.String("tenant_id", req.TenantID.String()),
-			slog.String("display_name", displayName),
-			slog.Any("error", err))
-		http.Error(w, "failed to provision finance schema", http.StatusInternalServerError)
-		return
-	}
-
-	// Get the final schema name
-	finalSchema, _ := h.tenantService.GetTenantSchema(ctx, req.TenantID)
-
-	h.logger.Info("successfully provisioned finance tenant schema",
-		slog.String("tenant_id", req.TenantID.String()),
-		slog.String("schema", finalSchema))
-
+	// Provisioning is now handled centrally by frego-backend.
+	// This endpoint is deprecated and should not be used.
 	resp := ProvisionTenantResponse{
-		Message:    "finance schema provisioned successfully",
-		TenantID:   req.TenantID.String(),
-		SchemaName: finalSchema,
+		Message: "provisioning is now handled centrally",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

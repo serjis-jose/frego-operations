@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -16,9 +17,8 @@ type Repository struct {
 	tenantSessions *db.TenantSessionManager
 }
 
-// New creates a new operations repository (deprecated - use NewWithSessions)
-func New(tenantPool, operationsPool *pgxpool.Pool, defaultTenant string) *Repository {
-	return NewWithSessions(db.NewTenantSessionManager(tenantPool, operationsPool, "operations"))
+func New(pool *pgxpool.Pool) *Repository {
+	return NewWithSessions(db.NewTenantSessionManager(pool, pool, "operations"))
 }
 
 func NewWithSessions(sessions *db.TenantSessionManager) *Repository {
@@ -28,24 +28,10 @@ func NewWithSessions(sessions *db.TenantSessionManager) *Repository {
 }
 
 func (r *Repository) withQueries(ctx context.Context, fn func(*sqlc.Queries) error) error {
-	// Get tenant-specific session
-	conn, err := r.tenantSessions.GetSession(ctx, getTenantIDFromContext(ctx))
-	if err != nil {
-		return err
-	}
-	defer r.tenantSessions.ReleaseSession(conn)
-
-	// Execute query function
-	q := sqlc.New(conn)
-	return fn(q)
-}
-
-// getTenantIDFromContext extracts tenant ID from context
-// This is a placeholder - you should implement proper context extraction
-func getTenantIDFromContext(ctx context.Context) uuid.UUID {
-	// TODO: Extract from context properly
-	// For now, return a zero UUID - this will need to be fixed
-	return uuid.UUID{}
+	return r.tenantSessions.WithTenantTx(ctx, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlc.New(tx)
+		return fn(q)
+	})
 }
 
 // ============================================================
@@ -131,16 +117,6 @@ func (r *Repository) ListCSExecutiveLookups(ctx context.Context) ([]sqlc.ListCSE
 		return err
 	})
 
-	return rows, err
-}
-
-func (r *Repository) ListIncotermLookups(ctx context.Context) ([]sqlc.ListIncotermLookupsRow, error) {
-	var rows []sqlc.ListIncotermLookupsRow
-	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
-		var err error
-		rows, err = q.ListIncotermLookups(ctx)
-		return err
-	})
 	return rows, err
 }
 
@@ -244,10 +220,7 @@ func (r *Repository) GetJobCarrier(ctx context.Context, jobID uuid.UUID) (sqlc.O
 	var carrier sqlc.OpsCarrier
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		var pgUUID pgtype.UUID
-		copy(pgUUID.Bytes[:], jobID[:])
-		pgUUID.Valid = true
-		carrier, err = q.GetJobCarrier(ctx, pgUUID)
+		carrier, err = q.GetJobCarrier(ctx, jobID)
 		return err
 	})
 	return carrier, err
@@ -305,10 +278,7 @@ func (r *Repository) ListJobBilling(ctx context.Context, jobID uuid.UUID) ([]sql
 	var rows []sqlc.ListJobBillingRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		var pgUUID pgtype.UUID
-		copy(pgUUID.Bytes[:], jobID[:])
-		pgUUID.Valid = true
-		rows, err = q.ListJobBilling(ctx, pgUUID)
+		rows, err = q.ListJobBilling(ctx, jobID)
 		return err
 	})
 	return rows, err
@@ -332,10 +302,7 @@ func (r *Repository) ListJobProvisions(ctx context.Context, jobID uuid.UUID) ([]
 	var rows []sqlc.ListJobProvisionsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		var pgUUID pgtype.UUID
-		copy(pgUUID.Bytes[:], jobID[:])
-		pgUUID.Valid = true
-		rows, err = q.ListJobProvisions(ctx, pgUUID)
+		rows, err = q.ListJobProvisions(ctx, jobID)
 		return err
 	})
 	return rows, err
@@ -359,10 +326,7 @@ func (r *Repository) GetJobTracking(ctx context.Context, jobID uuid.UUID) (sqlc.
 	var tracking sqlc.OpsTracking
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		var pgUUID pgtype.UUID
-		copy(pgUUID.Bytes[:], jobID[:])
-		pgUUID.Valid = true
-		tracking, err = q.GetJobTracking(ctx, pgUUID)
+		tracking, err = q.GetJobTracking(ctx, jobID)
 		return err
 	})
 	return tracking, err
