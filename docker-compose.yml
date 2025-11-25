@@ -11,7 +11,7 @@ services:
       - "8092:8080"
     environment:
       # Shared Tenant Database (Connects to backend's container)
-      TENANT_DB_URL: ${TENANT_DB_URL:-postgresql://erp_user:password@postgres-db:5432/frego_tenant_db?sslmode=disable}
+      TENANT_DB_URL: ${TENANT_DB_URL:-postgresql://erp_user:password@postgres-db:5432/frego_core_db?sslmode=disable}
       TENANT_DB_MAX_OPEN_CONNS: ${TENANT_DB_MAX_OPEN_CONNS:-25}
       TENANT_DB_MAX_IDLE_CONNS: ${TENANT_DB_MAX_IDLE_CONNS:-5}
       
