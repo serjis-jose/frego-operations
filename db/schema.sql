@@ -6,64 +6,22 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 --  OPERATIONS MODULE SCHEMA
 -- ============================================================
 -- 
--- This schema contains all tables needed for the Operations module
--- including shared lookups and dependencies
+-- DESIGN PRINCIPLE: Operations module can operate standalone
 -- 
-
+-- External References (Core/Backend Tables):
+--   - All references to external tables (party_master, employee_master, branch_lu)
+--     are stored as UUID fields WITHOUT foreign key constraints
+--   - This allows operations to work independently even if core tables don't exist
+--   - UUID values can be inserted/used without validation against external tables
+--   - Comments indicate which external table each UUID references
+-- 
+-- Internal References (Operations Tables):
+--   - References within operations module (e.g., ops_job, ops_package)
+--     use proper foreign key constraints for data integrity
+-- 
 -- ============================================================
---  SHARED LOOKUPS
+--  CORE LOOKUPS (Internal to Operations)
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS party_type_lu (
-  type         text PRIMARY KEY,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS classification_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         text NOT NULL UNIQUE,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS customer_group_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         text NOT NULL UNIQUE,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS company_type_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         text NOT NULL UNIQUE,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS payment_term_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  code         text UNIQUE,
-  name         text UNIQUE,
-  days         int,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
 
 CREATE TABLE IF NOT EXISTS currency_lu (
   id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -76,107 +34,12 @@ CREATE TABLE IF NOT EXISTS currency_lu (
   is_active    boolean DEFAULT true
 );
 
-CREATE TABLE IF NOT EXISTS country_lu (
-  country_id    serial PRIMARY KEY,
-  country_name  text NOT NULL UNIQUE,
-  country_code  char(3) NOT NULL UNIQUE,
-  created_at    timestamptz DEFAULT now(),
-  created_by    text,
-  modified_at   timestamptz,
-  modified_by   text,
-  is_active     boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS state_lu (
-  state_id     serial PRIMARY KEY,
-  state_name   text NOT NULL,
-  state_code   text,
-  country_id   int NOT NULL REFERENCES country_lu(country_id),
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true,
-  UNIQUE (state_name, country_id),
-  UNIQUE (state_code, country_id)
-);
-
-CREATE TABLE IF NOT EXISTS city_lu (
-  city_id     serial PRIMARY KEY,
-  city_name   text NOT NULL,
-  city_code   text,
-  state_id    int NOT NULL REFERENCES state_lu(state_id),
-  created_at  timestamptz DEFAULT now(),
-  created_by  text,
-  modified_at timestamptz,
-  modified_by text,
-  is_active   boolean DEFAULT true,
-  UNIQUE (city_name, state_id),
-  UNIQUE (city_code, state_id)
-);
-
 CREATE TABLE IF NOT EXISTS incoterm_lu (
   id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   code         text NOT NULL UNIQUE,
   name         text,
   version      smallint DEFAULT 2020,
   created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS network_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         text NOT NULL UNIQUE,
-  network_type text,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS branch_lu (
-  branch_id    uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  branch_name  text NOT NULL UNIQUE,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS criteria_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         text NOT NULL UNIQUE,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS certification_lu (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         text NOT NULL UNIQUE,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS office_type_lu (
-  code        text PRIMARY KEY,
-  label       text NOT NULL UNIQUE,
-  created_at  timestamptz DEFAULT now(),
-  created_by  text,
-  modified_at timestamptz,
-  modified_by text,
-  is_active   boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS shipping_mode_lu (
-  name         text PRIMARY KEY,
-  created_at   timestamptz DEFAULT now(),
   created_by   text,
   modified_at  timestamptz,
   modified_by  text,
@@ -194,213 +57,7 @@ CREATE TABLE IF NOT EXISTS document_type_lu (
 );
 
 -- ============================================================
---  EMPLOYEE MASTER
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS employee_master (
-  id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name        text NOT NULL,
-  email       text NOT NULL UNIQUE,
-  role        text NOT NULL,
-  created_at  timestamptz,
-  created_by  text,
-  modified_at timestamptz,
-  modified_by text,
-  is_active   boolean DEFAULT true
-);
-
--- ============================================================
---  CS EXECUTIVE LOOKUP
--- ============================================================ 
-
-CREATE TABLE IF NOT EXISTS cs_executive_lu (
-  cs_exec_id   uuid PRIMARY KEY REFERENCES employee_master(id) ON DELETE CASCADE,
-  cs_exec_name text NOT NULL,
-  branch_id    uuid REFERENCES branch_lu(branch_id),
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
--- ============================================================
---  SALES EXECUTIVE LOOKUP
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS sales_executive_lu (
-  sales_exec_id   uuid PRIMARY KEY REFERENCES employee_master(id) ON DELETE CASCADE,
-  sales_exec_name text NOT NULL,
-  branch_id       uuid REFERENCES branch_lu(branch_id),
-  created_at      timestamptz DEFAULT now(),
-  created_by      text,
-  modified_at     timestamptz,
-  modified_by     text,
-  is_active       boolean DEFAULT true
-);
-
--- ============================================================
---  PARTY MASTER
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS party_master (
-  id                   uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name                 text NOT NULL,
-  classification_id    uuid NOT NULL REFERENCES classification_lu(id),
-  company_type_id      uuid NOT NULL REFERENCES company_type_lu(id),
-  sales_executive_id   uuid REFERENCES employee_master(id),
-  sales_head_id        uuid REFERENCES employee_master(id),
-  human_id             text UNIQUE,
-  customer_group_id    uuid REFERENCES customer_group_lu(id),
-  business_nature      text,
-  vat_tax_number       text,
-  trade_license_no     text,
-  trade_license_expiry date,
-  owner_id_type        text,
-  owner_id_number      text,
-  owner_id_expiry      date,
-  status               text CHECK (status IN ('Active','Inactive','Blacklisted')) DEFAULT 'Active',
-  created_at           timestamptz DEFAULT now(),
-  created_by           text,
-  modified_at          timestamptz,
-  modified_by          text,
-  is_active            boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS party_role (
-  party_id     uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  role_type    text NOT NULL REFERENCES party_type_lu(type),
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  PRIMARY KEY (party_id, role_type)
-);
-
-CREATE TABLE IF NOT EXISTS party_address (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  party_id     uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  street       text NOT NULL,
-  city         text NOT NULL,
-  state        text NOT NULL,
-  country      text NOT NULL,
-  postal_code  text NOT NULL,
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS party_contact_person (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  party_id     uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  name         text NOT NULL,
-  email        text NOT NULL,
-  phone        text NOT NULL,
-  designation  text,
-  is_primary   boolean DEFAULT FALSE,
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS party_document (
-  id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  party_id     uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  doc_type     text NOT NULL REFERENCES document_type_lu(code),
-  doc_number   text,
-  issued_on    date,
-  expiry_on    date,
-  file_key     text,
-  file_region  text,
-  display_name text,
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS party_finance (
-  party_id                   uuid PRIMARY KEY REFERENCES party_master(id) ON DELETE CASCADE,
-  credit_limit               numeric(14,2),
-  credit_period_days         int,
-  customs_duty_payment_limit numeric(14,2),
-  payment_term_code          text REFERENCES payment_term_lu(code),
-  preferred_currency_code    char(3) REFERENCES currency_lu(code),
-  default_incoterm_code      text REFERENCES incoterm_lu(code),
-  created_at                 timestamptz DEFAULT now(),
-  created_by                 text,
-  modified_at                timestamptz,
-  modified_by                text,
-  is_active                  boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS party_profile (
-  party_id         uuid PRIMARY KEY REFERENCES party_master(id) ON DELETE CASCADE,
-  company_id       text,
-  office_type      text REFERENCES office_type_lu(code),
-  years_in_business int,
-  phone            text,
-  mobile           text,
-  email            text,
-  website          text,
-  created_at       timestamptz DEFAULT now(),
-  created_by       text,
-  modified_at      timestamptz,
-  modified_by      text,
-  is_active        boolean DEFAULT true
-);
-
-CREATE TABLE IF NOT EXISTS party_network (
-  party_id     uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  network_id   uuid NOT NULL REFERENCES network_lu(id),
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true,
-  PRIMARY KEY (party_id, network_id)
-);
-
-CREATE TABLE IF NOT EXISTS party_criteria (
-  party_id    uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  criteria_id uuid NOT NULL REFERENCES criteria_lu(id),
-  created_at  timestamptz DEFAULT now(),
-  created_by  text,
-  modified_at timestamptz,
-  modified_by text,
-  is_active   boolean DEFAULT true,
-  PRIMARY KEY (party_id, criteria_id)
-);
-
-CREATE TABLE IF NOT EXISTS party_certification (
-  party_id          uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  certification_id  uuid NOT NULL REFERENCES certification_lu(id),
-  created_at        timestamptz DEFAULT now(),
-  created_by        text,
-  modified_at       timestamptz,
-  modified_by       text,
-  is_active         boolean DEFAULT true,
-  PRIMARY KEY (party_id, certification_id)
-);
-
-CREATE TABLE IF NOT EXISTS party_shipping_mode (
-  party_id   uuid NOT NULL REFERENCES party_master(id) ON DELETE CASCADE,
-  mode_id    text NOT NULL REFERENCES shipping_mode_lu(name),
-  created_at timestamptz DEFAULT now(),
-  created_by text,
-  modified_at timestamptz,
-  modified_by text,
-  is_active  boolean DEFAULT true,
-  PRIMARY KEY (party_id, mode_id)
-);
-
--- ============================================================
---  OPERATIONS MODULE
+--  OPERATIONS MODULE TABLES
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS ops_job (
@@ -411,9 +68,11 @@ CREATE TABLE IF NOT EXISTS ops_job (
   transport_mode      text,
   service_type        text,
   service_subcategory text,
-  parent_job_id       uuid REFERENCES ops_job(id),
-  customer_id         uuid REFERENCES party_master(id),
-  agent_id            uuid REFERENCES party_master(id),
+  parent_job_id       uuid, -- REFERENCES ops_job(id) - Internal FK kept
+  customer_id         uuid, -- REFERENCES party_master(id) - External: UUID only
+  customer_name       text, -- Snapshot: party_master.name (for standalone display)
+  agent_id            uuid, -- REFERENCES party_master(id) - External: UUID only
+  agent_name          text, -- Snapshot: party_master.name (for standalone display)
   shipment_origin     text,
   destination_city    text,
   destination_state   text,
@@ -421,13 +80,17 @@ CREATE TABLE IF NOT EXISTS ops_job (
   source_city         text,
   source_state        text,
   source_country      text,
-  branch_id           uuid REFERENCES branch_lu(branch_id),
+  branch_id           uuid, -- REFERENCES branch_lu(branch_id) - External: UUID only
+  branch_name         text, -- Snapshot: branch_lu.branch_name (for standalone display)
   inco_term_code      text REFERENCES incoterm_lu(code),
   commodity           text,
   classification      text,
-  sales_executive_id  uuid REFERENCES employee_master(id),
-  operations_exec_id  uuid REFERENCES employee_master(id),
-  cs_executive_id     uuid REFERENCES cs_executive_lu(cs_exec_id),
+  sales_executive_id  uuid, -- REFERENCES employee_master(id) - External: UUID only
+  sales_executive_name text, -- Snapshot: employee_master.name (for standalone display)
+  operations_exec_id  uuid, -- REFERENCES employee_master(id) - External: UUID only
+  operations_exec_name text, -- Snapshot: employee_master.name (for standalone display)
+  cs_executive_id     uuid, -- REFERENCES employee_master(id) - External: UUID only
+  cs_executive_name   text, -- Snapshot: employee_master.name (for standalone display)
   agent_deadline      timestamptz,
   shipment_ready_date timestamptz,
   status              text,
@@ -436,8 +99,16 @@ CREATE TABLE IF NOT EXISTS ops_job (
   created_by          text,
   modified_at         timestamptz,
   modified_by         text,
-  is_active           boolean DEFAULT true
+  is_active           boolean DEFAULT true,
+  
+  -- Internal FK for parent job
+  CONSTRAINT fk_parent_job FOREIGN KEY (parent_job_id) REFERENCES ops_job(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_ops_job_customer ON ops_job(customer_id);
+CREATE INDEX IF NOT EXISTS idx_ops_job_agent ON ops_job(agent_id);
+CREATE INDEX IF NOT EXISTS idx_ops_job_branch ON ops_job(branch_id);
+CREATE INDEX IF NOT EXISTS idx_ops_job_status ON ops_job(status);
 
 CREATE TABLE IF NOT EXISTS ops_package (
   id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -461,11 +132,13 @@ CREATE TABLE IF NOT EXISTS ops_package (
   is_active       boolean DEFAULT true
 );
 
+CREATE INDEX IF NOT EXISTS idx_ops_package_job ON ops_package(job_id);
+
 CREATE TABLE IF NOT EXISTS ops_carrier (
   id                    uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id                uuid REFERENCES ops_job(id) ON DELETE CASCADE,
-  carrier_party_id      uuid REFERENCES party_master(id),
-  carrier_name          text,
+  carrier_party_id      uuid, -- REFERENCES party_master(id) - External: UUID only
+  carrier_name          text, -- Snapshot: party_master.name (for standalone display)
   vessel_name           text,
   voyage_number         text,
   flight_id             text,
@@ -485,6 +158,8 @@ CREATE TABLE IF NOT EXISTS ops_carrier (
   is_active             boolean DEFAULT true
 );
 
+CREATE INDEX IF NOT EXISTS idx_ops_carrier_job ON ops_carrier(job_id);
+
 CREATE TABLE IF NOT EXISTS ops_job_document (
   id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id          uuid NOT NULL REFERENCES ops_job(id) ON DELETE CASCADE,
@@ -502,12 +177,15 @@ CREATE TABLE IF NOT EXISTS ops_job_document (
   is_active       boolean DEFAULT true
 );
 
+CREATE INDEX IF NOT EXISTS idx_ops_job_document_job ON ops_job_document(job_id);
+
 CREATE TABLE IF NOT EXISTS ops_billing (
   id                      uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id                  uuid REFERENCES ops_job(id) ON DELETE CASCADE,
   activity_type           text,
   activity_code           text,
-  billing_party_id        uuid REFERENCES party_master(id),
+  billing_party_id        uuid, -- REFERENCES party_master(id) - External: UUID only
+  billing_party_name      text, -- Snapshot: party_master.name (for standalone display)
   po_number               text,
   po_date                 date,
   currency_code           char(3) REFERENCES currency_lu(code),
@@ -523,12 +201,15 @@ CREATE TABLE IF NOT EXISTS ops_billing (
   is_active               boolean DEFAULT true
 );
 
+CREATE INDEX IF NOT EXISTS idx_ops_billing_job ON ops_billing(job_id);
+
 CREATE TABLE IF NOT EXISTS ops_provision (
   id                      uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   job_id                  uuid REFERENCES ops_job(id) ON DELETE CASCADE,
   activity_type           text,
   activity_code           text,
-  cost_party_id           uuid REFERENCES party_master(id),
+  cost_party_id           uuid, -- REFERENCES party_master(id) - External: UUID only
+  cost_party_name         text, -- Snapshot: party_master.name (for standalone display)
   invoice_number          text,
   invoice_date            date,
   currency_code           char(3) REFERENCES currency_lu(code),
@@ -544,6 +225,8 @@ CREATE TABLE IF NOT EXISTS ops_provision (
   modified_by             text,
   is_active               boolean DEFAULT true
 );
+
+CREATE INDEX IF NOT EXISTS idx_ops_provision_job ON ops_provision(job_id);
 
 CREATE TABLE IF NOT EXISTS ops_tracking (
   id               uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -562,6 +245,8 @@ CREATE TABLE IF NOT EXISTS ops_tracking (
   modified_by      text,
   is_active        boolean DEFAULT true
 );
+
+CREATE INDEX IF NOT EXISTS idx_ops_tracking_job ON ops_tracking(job_id);
 
 -- ============================================================
 --  LOOKUP TABLES FOR OPERATIONS
@@ -600,43 +285,6 @@ CREATE TABLE IF NOT EXISTS role_details_lu (
 CREATE TABLE IF NOT EXISTS priority_lu (
   priority_id     smallint PRIMARY KEY,
   priority_label  text 
-);
-
--- ============================================================
---  ORDERS (PRICING TOOL)
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS orders (
-  order_id             text PRIMARY KEY,
-  sales_team           text,
-  sales_person         text,
-  mode                 text,
-  customer_name        text,
-  classification       text,
-  agent_deadline       timestamptz,
-  comments             text,
-  commodity            text,
-  destination_city     text,
-  destination_country  text,
-  incoterm             text,
-  package_list         jsonb,
-  pickup_address       text,
-  shipment_ready_date  timestamptz,
-  shipment_type        text,
-  source_city          text,
-  source_country       text,
-  status               text,
-  order_created_on     timestamptz,
-  order_created_by     text,
-  created_at           timestamptz NOT NULL DEFAULT now(),
-  created_by           text,
-  is_deleted           boolean       NOT NULL DEFAULT false,
-  template_name        text,
-  email_logs           jsonb,
-  negotiated_quotes    jsonb,
-  modified_at          timestamptz,
-  modified_by          text,
-  is_active            boolean       NOT NULL DEFAULT true
 );
 
 COMMIT;
