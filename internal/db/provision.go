@@ -46,7 +46,7 @@ func loadOperationsProvisionScript() (string, error) {
 	return operationsProvisionSQL, nil
 }
 
-// EnsureOperationsTenantProvisioning installs the operations tenant provisioning procedure if it is absent.
+// EnsureOperationsTenantProvisioning installs or refreshes the operations tenant provisioning procedure on startup.
 func EnsureOperationsTenantProvisioning(ctx context.Context, pool *pgxpool.Pool) error {
 	operationsProvisionMu.Lock()
 	defer operationsProvisionMu.Unlock()
@@ -66,20 +66,9 @@ func EnsureOperationsTenantProvisioning(ctx context.Context, pool *pgxpool.Pool)
 	}
 	defer conn.Release()
 
-	var exists bool
-	if err := conn.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM pg_proc
-			WHERE proname = 'ensure_operations_tenant_schema'
-		)
-	`).Scan(&exists); err != nil {
-		return fmt.Errorf("check operations procedure: %w", err)
-	}
-
-	if !exists {
-		if _, err := conn.Exec(ctx, script); err != nil {
-			return fmt.Errorf("execute provisioning script: %w", err)
-		}
+	// Execute the script unconditionally so the latest definition is always in place.
+	if _, err := conn.Exec(ctx, script); err != nil {
+		return fmt.Errorf("execute provisioning script: %w", err)
 	}
 
 	operationsProvisionApplied = true
