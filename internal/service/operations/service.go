@@ -104,7 +104,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range jobStatusRows {
 		desc := common.PgtypeTextToStringPtr(row.JobStatusDesc)
 		result.JobStatuses = append(result.JobStatuses, operationsdto.JobStatus{
-			JobStatusID:   row.JobStatusID.Int16,
+			JobStatusID:   row.JobStatusID,
 			JobStatusName: common.PgtypeTextToString(row.JobStatusName),
 			JobStatusDesc: desc,
 		})
@@ -119,7 +119,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range docStatusRows {
 		desc := common.PgtypeTextToStringPtr(row.DocStatusDesc)
 		result.DocumentStatuses = append(result.DocumentStatuses, operationsdto.DocumentStatus{
-			DocStatusID:   row.DocStatusID.Int16,
+			DocStatusID:   row.DocStatusID,
 			DocStatusName: common.PgtypeTextToString(row.DocStatusName),
 			DocStatusDesc: desc,
 		})
@@ -134,7 +134,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range priorityRows {
 		result.PriorityLevels = append(result.PriorityLevels, operationsdto.PriorityLevel{
 			PriorityID:    row.PriorityID,
-			PriorityLabel: row.PriorityLabel,
+			PriorityLabel: common.PgtypeTextToString(row.PriorityLabel),
 		})
 	}
 
@@ -147,7 +147,7 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 	for _, row := range roleRows {
 		desc := common.PgtypeTextToStringPtr(row.RoleDesc)
 		result.RoleDetails = append(result.RoleDetails, operationsdto.RoleDetails{
-			RoleID:   row.RoleID.Int16,
+			RoleID:   row.RoleID,
 			RoleName: common.PgtypeTextToString(row.RoleName),
 			RoleDesc: desc,
 		})
@@ -270,7 +270,7 @@ func (s *Service) ListJobs(ctx context.Context, status, jobType *string, custome
 			SourceState:        common.PgtypeTextToStringPtr(row.SourceState),
 			SourceCountry:      common.PgtypeTextToStringPtr(row.SourceCountry),
 			Status:             common.PgtypeTextToStringPtr(row.Status),
-			PriorityLevel:      int2ToStringPtr(row.PriorityLevel),
+			PriorityLevel:      textToStringPtr(row.PriorityLevel),
 			SalesExecutive: operationsdto.Employee{
 				ID:    row.SalesExecutiveID.Bytes,
 				Name:  common.PgtypeTextToString(row.SalesExecutiveName),
@@ -351,7 +351,7 @@ func (s *Service) GetJob(ctx context.Context, jobID uuid.UUID) (operationsdto.Jo
 		AgentDeadline:     timeFromPgtype(job.AgentDeadline),
 		ShipmentReadyDate: timeFromPgtype(job.ShipmentReadyDate),
 		Status:            common.PgtypeTextToStringPtr(job.Status),
-		PriorityLevel:     int2ToStringPtr(job.PriorityLevel),
+		PriorityLevel:     textToStringPtr(job.PriorityLevel),
 		CreatedAt:         job.CreatedAt.Time,
 		CreatedBy:         common.PgtypeTextToStringPtr(job.CreatedBy),
 		ModifiedAt:        timeFromPgtype(job.ModifiedAt),
@@ -369,10 +369,10 @@ func (s *Service) GetJob(ctx context.Context, jobID uuid.UUID) (operationsdto.Jo
 		detail.Packages = append(detail.Packages, packageFromSqlc(pkg))
 	}
 
-	// Fetch carrier
-	carrier, err := s.repo.GetJobCarrier(ctx, jobID)
-	if err == nil {
-		c := carrierFromSqlc(carrier)
+	// Fetch carriers
+	carriers, err := s.repo.GetJobCarriers(ctx, jobID)
+	if err == nil && len(carriers) > 0 {
+		c := carrierFromSqlc(carriers[0])
 		detail.Carrier = &c
 	}
 
@@ -444,7 +444,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 		AgentDeadline:      timestampFromTime(input.AgentDeadline),
 		ShipmentReadyDate:  timestampFromTime(input.ShipmentReadyDate),
 		Status:             repository.NullTextFromString(input.Status),
-		PriorityLevel:      int2FromString(input.PriorityLevel),
+		PriorityLevel:      textFromString(input.PriorityLevel),
 		Actor:              pgtype.Text{String: input.CreatedBy, Valid: true},
 	}
 
@@ -454,23 +454,23 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 		return operationsdto.JobDetail{}, fmt.Errorf("operations: create job: %w", err)
 	}
 
-	// Create packages
+	// Create packages - map old field names to new schema
 	for _, pkgInput := range input.Packages {
+		// Note: Input uses old field names, we need to map to new schema
+		// For now, we'll create a minimal package with available fields
+		// TODO: Update input DTO to match new schema
 		pkgParams := sqlc.CreateJobPackageParams{
-			JobID:        job.ID,
-			PackageName:  repository.NullTextFromString(pkgInput.PackageName),
-			PackageType:  repository.NullTextFromString(pkgInput.PackageType),
-			Quantity:     int4FromInt32(pkgInput.Quantity),
-			LengthMeters: numericFromFloat64(pkgInput.LengthMeters),
-			WidthMeters:  numericFromFloat64(pkgInput.WidthMeters),
-			HeightMeters: numericFromFloat64(pkgInput.HeightMeters),
-			WeightKg:     numericFromFloat64(pkgInput.WeightKg),
-			VolumeCbm:    numericFromFloat64(pkgInput.VolumeCbm),
-			HsCode:       repository.NullTextFromString(pkgInput.HSCode),
-			CargoType:    repository.NullTextFromString(pkgInput.CargoType),
-			ContainerID:  repository.NullTextFromString(pkgInput.ContainerID),
-			Notes:        repository.NullTextFromString(pkgInput.Notes),
-			Actor:        pgtype.Text{String: input.CreatedBy, Valid: true},
+			JobID:              job.ID,
+			ContainerNo:        repository.NullTextFromString(pkgInput.ContainerID), // Map ContainerID to ContainerNo
+			ContainerName:      repository.NullTextFromString(pkgInput.PackageName), // Map PackageName to ContainerName
+			PackageType:        repository.NullTextFromString(pkgInput.PackageType),
+			CargoType:          repository.NullTextFromString(pkgInput.CargoType),
+			GrossWeightKg:      numericFromFloat64(pkgInput.WeightKg),  // Map WeightKg to GrossWeightKg
+			Volume:             numericFromFloat64(pkgInput.VolumeCbm), // Map VolumeCbm to Volume
+			NoOfPackages:       numericFromInt32(pkgInput.Quantity),    // Map Quantity to NoOfPackages
+			HsCode:             repository.NullTextFromString(pkgInput.HSCode),
+			TemperatureControl: pgtype.Bool{Bool: false, Valid: true},
+			Actor:              pgtype.Text{String: input.CreatedBy, Valid: true},
 		}
 		_, err = s.repo.CreateJobPackage(ctx, pkgParams)
 		if err != nil {
@@ -481,7 +481,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create carrier
 	if input.Carrier != nil {
 		carrierParams := sqlc.CreateJobCarrierParams{
-			JobID:                  job.ID,
+			JobID:                  uuidToPgtype(job.ID),
 			CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
 			CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
 			VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
@@ -495,7 +495,6 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			DestinationPortStation: repository.NullTextFromString(input.Carrier.DestinationPortStation),
 			AccountingInfo:         repository.NullTextFromString(input.Carrier.AccountingInfo),
 			HandlingInfo:           repository.NullTextFromString(input.Carrier.HandlingInfo),
-			SupportingDocUrl:       repository.NullTextFromString(input.Carrier.SupportingDocURL),
 			Actor:                  pgtype.Text{String: input.CreatedBy, Valid: true},
 		}
 		_, err = s.repo.CreateJobCarrier(ctx, carrierParams)
@@ -511,7 +510,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			DocTypeCode: repository.NullTextFromString(docInput.DocTypeCode),
 			DocNumber:   repository.NullTextFromString(docInput.DocNumber),
 			IssuedAt:    timestampFromString(docInput.IssuedAt),
-			IssuedDate:  dateFromTime(docInput.IssuedDate),
+			IssuedDate:  timestampFromTime(docInput.IssuedDate),
 			Description: repository.NullTextFromString(docInput.Description),
 			FileKey:     repository.NullTextFromString(docInput.FileKey),
 			FileRegion:  repository.NullTextFromString(docInput.FileRegion),
@@ -526,7 +525,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create billing entries
 	for _, billInput := range input.Billing {
 		billParams := sqlc.CreateJobBillingParams{
-			JobID:                 job.ID,
+			JobID:                 uuidToPgtype(job.ID),
 			ActivityType:          repository.NullTextFromString(billInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(billInput.ActivityCode),
 			BillingPartyID:        repository.NullUUIDFromUUID(billInput.BillingPartyID),
@@ -536,7 +535,6 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			Amount:                numericFromFloat64(billInput.Amount),
 			Description:           repository.NullTextFromString(billInput.Description),
 			Notes:                 repository.NullTextFromString(billInput.Notes),
-			SupportingDocUrl:      repository.NullTextFromString(billInput.SupportingDocURL),
 			AmountPrimaryCurrency: numericFromFloat64(billInput.AmountPrimaryCurrency),
 			Actor:                 pgtype.Text{String: input.CreatedBy, Valid: true},
 		}
@@ -549,7 +547,7 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create provision entries
 	for _, provInput := range input.Provisions {
 		provParams := sqlc.CreateJobProvisionParams{
-			JobID:                 job.ID,
+			JobID:                 uuidToPgtype(job.ID),
 			ActivityType:          repository.NullTextFromString(provInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(provInput.ActivityCode),
 			CostPartyID:           repository.NullUUIDFromUUID(provInput.CostPartyID),
@@ -559,7 +557,6 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			Amount:                numericFromFloat64(provInput.Amount),
 			PaymentPriority:       repository.NullTextFromString(provInput.PaymentPriority),
 			Notes:                 repository.NullTextFromString(provInput.Notes),
-			SupportingDocUrl:      repository.NullTextFromString(provInput.SupportingDocURL),
 			AmountPrimaryCurrency: numericFromFloat64(provInput.AmountPrimaryCurrency),
 			Profit:                numericFromFloat64(provInput.Profit),
 			Actor:                 pgtype.Text{String: input.CreatedBy, Valid: true},
@@ -573,13 +570,12 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create tracking
 	if input.Tracking != nil {
 		trackParams := sqlc.UpsertJobTrackingParams{
-			JobID:          job.ID,
+			JobID:          uuidToPgtype(job.ID),
 			EtdDate:        timestampFromTime(input.Tracking.ETDDate),
 			EtaDate:        timestampFromTime(input.Tracking.ETADate),
 			AtdDate:        timestampFromTime(input.Tracking.ATDDate),
 			AtaDate:        timestampFromTime(input.Tracking.ATADate),
 			JobStatus:      repository.NullTextFromString(input.Tracking.JobStatus),
-			PodStatus:      repository.NullTextFromString(input.Tracking.PODStatus),
 			DocumentStatus: repository.NullTextFromString(input.Tracking.DocumentStatus),
 			Notes:          repository.NullTextFromString(input.Tracking.Notes),
 			Actor:          pgtype.Text{String: input.CreatedBy, Valid: true},
@@ -626,7 +622,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 		AgentDeadline:      timestampFromTime(input.AgentDeadline),
 		ShipmentReadyDate:  timestampFromTime(input.ShipmentReadyDate),
 		Status:             repository.NullTextFromString(input.Status),
-		PriorityLevel:      int2FromString(input.PriorityLevel),
+		PriorityLevel:      textFromString(input.PriorityLevel),
 		Actor:              pgtype.Text{String: input.ModifiedBy, Valid: true},
 	}
 
@@ -636,23 +632,20 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 		return operationsdto.JobDetail{}, fmt.Errorf("operations: update job: %w", err)
 	}
 
-	// Update packages if provided
+	// Update packages if provided - map old field names to new schema
 	for _, pkgInput := range input.Packages {
 		pkgParams := sqlc.CreateJobPackageParams{
-			JobID:        jobID,
-			PackageName:  repository.NullTextFromString(pkgInput.PackageName),
-			PackageType:  repository.NullTextFromString(pkgInput.PackageType),
-			Quantity:     int4FromInt32(pkgInput.Quantity),
-			LengthMeters: numericFromFloat64(pkgInput.LengthMeters),
-			WidthMeters:  numericFromFloat64(pkgInput.WidthMeters),
-			HeightMeters: numericFromFloat64(pkgInput.HeightMeters),
-			WeightKg:     numericFromFloat64(pkgInput.WeightKg),
-			VolumeCbm:    numericFromFloat64(pkgInput.VolumeCbm),
-			HsCode:       repository.NullTextFromString(pkgInput.HSCode),
-			CargoType:    repository.NullTextFromString(pkgInput.CargoType),
-			ContainerID:  repository.NullTextFromString(pkgInput.ContainerID),
-			Notes:        repository.NullTextFromString(pkgInput.Notes),
-			Actor:        pgtype.Text{String: input.ModifiedBy, Valid: true},
+			JobID:              jobID,
+			ContainerNo:        repository.NullTextFromString(pkgInput.ContainerID),
+			ContainerName:      repository.NullTextFromString(pkgInput.PackageName),
+			PackageType:        repository.NullTextFromString(pkgInput.PackageType),
+			CargoType:          repository.NullTextFromString(pkgInput.CargoType),
+			GrossWeightKg:      numericFromFloat64(pkgInput.WeightKg),
+			Volume:             numericFromFloat64(pkgInput.VolumeCbm),
+			NoOfPackages:       numericFromInt32(pkgInput.Quantity),
+			HsCode:             repository.NullTextFromString(pkgInput.HSCode),
+			TemperatureControl: pgtype.Bool{Bool: false, Valid: true},
+			Actor:              pgtype.Text{String: input.ModifiedBy, Valid: true},
 		}
 		_, err = s.repo.CreateJobPackage(ctx, pkgParams)
 		if err != nil {
@@ -664,7 +657,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	if input.Carrier != nil {
 		// Try to update existing carrier first
 		updateParams := sqlc.UpdateJobCarrierParams{
-			JobID:                  jobID,
+			JobID:                  uuidToPgtype(jobID),
 			CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
 			CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
 			VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
@@ -678,7 +671,6 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			DestinationPortStation: repository.NullTextFromString(input.Carrier.DestinationPortStation),
 			AccountingInfo:         repository.NullTextFromString(input.Carrier.AccountingInfo),
 			HandlingInfo:           repository.NullTextFromString(input.Carrier.HandlingInfo),
-			SupportingDocUrl:       repository.NullTextFromString(input.Carrier.SupportingDocURL),
 			Actor:                  pgtype.Text{String: input.ModifiedBy, Valid: true},
 		}
 		_, err = s.repo.UpdateJobCarrier(ctx, updateParams)
@@ -686,7 +678,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			// If update fails (no rows), create new carrier
 			if errors.Is(err, pgx.ErrNoRows) {
 				createParams := sqlc.CreateJobCarrierParams{
-					JobID:                  jobID,
+					JobID:                  uuidToPgtype(jobID),
 					CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
 					CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
 					VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
@@ -700,7 +692,6 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 					DestinationPortStation: repository.NullTextFromString(input.Carrier.DestinationPortStation),
 					AccountingInfo:         repository.NullTextFromString(input.Carrier.AccountingInfo),
 					HandlingInfo:           repository.NullTextFromString(input.Carrier.HandlingInfo),
-					SupportingDocUrl:       repository.NullTextFromString(input.Carrier.SupportingDocURL),
 					Actor:                  pgtype.Text{String: input.ModifiedBy, Valid: true},
 				}
 				_, err = s.repo.CreateJobCarrier(ctx, createParams)
@@ -720,7 +711,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			DocTypeCode: repository.NullTextFromString(docInput.DocTypeCode),
 			DocNumber:   repository.NullTextFromString(docInput.DocNumber),
 			IssuedAt:    timestampFromString(docInput.IssuedAt),
-			IssuedDate:  dateFromTime(docInput.IssuedDate),
+			IssuedDate:  timestampFromTime(docInput.IssuedDate),
 			Description: repository.NullTextFromString(docInput.Description),
 			FileKey:     repository.NullTextFromString(docInput.FileKey),
 			FileRegion:  repository.NullTextFromString(docInput.FileRegion),
@@ -735,7 +726,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	// Update billing if provided
 	for _, billInput := range input.Billing {
 		billParams := sqlc.CreateJobBillingParams{
-			JobID:                 jobID,
+			JobID:                 uuidToPgtype(jobID),
 			ActivityType:          repository.NullTextFromString(billInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(billInput.ActivityCode),
 			BillingPartyID:        repository.NullUUIDFromUUID(billInput.BillingPartyID),
@@ -745,7 +736,6 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			Amount:                numericFromFloat64(billInput.Amount),
 			Description:           repository.NullTextFromString(billInput.Description),
 			Notes:                 repository.NullTextFromString(billInput.Notes),
-			SupportingDocUrl:      repository.NullTextFromString(billInput.SupportingDocURL),
 			AmountPrimaryCurrency: numericFromFloat64(billInput.AmountPrimaryCurrency),
 			Actor:                 pgtype.Text{String: input.ModifiedBy, Valid: true},
 		}
@@ -758,7 +748,7 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	// Update provisions if provided
 	for _, provInput := range input.Provisions {
 		provParams := sqlc.CreateJobProvisionParams{
-			JobID:                 jobID,
+			JobID:                 uuidToPgtype(jobID),
 			ActivityType:          repository.NullTextFromString(provInput.ActivityType),
 			ActivityCode:          repository.NullTextFromString(provInput.ActivityCode),
 			CostPartyID:           repository.NullUUIDFromUUID(provInput.CostPartyID),
@@ -768,7 +758,6 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			Amount:                numericFromFloat64(provInput.Amount),
 			PaymentPriority:       repository.NullTextFromString(provInput.PaymentPriority),
 			Notes:                 repository.NullTextFromString(provInput.Notes),
-			SupportingDocUrl:      repository.NullTextFromString(provInput.SupportingDocURL),
 			AmountPrimaryCurrency: numericFromFloat64(provInput.AmountPrimaryCurrency),
 			Profit:                numericFromFloat64(provInput.Profit),
 			Actor:                 pgtype.Text{String: input.ModifiedBy, Valid: true},
@@ -782,13 +771,12 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	// Update tracking if provided
 	if input.Tracking != nil {
 		trackParams := sqlc.UpsertJobTrackingParams{
-			JobID:          jobID,
+			JobID:          uuidToPgtype(jobID),
 			EtdDate:        timestampFromTime(input.Tracking.ETDDate),
 			EtaDate:        timestampFromTime(input.Tracking.ETADate),
 			AtdDate:        timestampFromTime(input.Tracking.ATDDate),
 			AtaDate:        timestampFromTime(input.Tracking.ATADate),
 			JobStatus:      repository.NullTextFromString(input.Tracking.JobStatus),
-			PodStatus:      repository.NullTextFromString(input.Tracking.PODStatus),
 			DocumentStatus: repository.NullTextFromString(input.Tracking.DocumentStatus),
 			Notes:          repository.NullTextFromString(input.Tracking.Notes),
 			Actor:          pgtype.Text{String: input.ModifiedBy, Valid: true},
@@ -819,86 +807,26 @@ func (s *Service) ArchiveJob(ctx context.Context, jobID uuid.UUID, actor string)
 }
 
 // ============================================================
-// HELPER FUNCTIONS
+// CONVERSION FUNCTIONS - SQLC to DTO
 // ============================================================
-
-func uuidFromPgtype(u pgtype.UUID) *uuid.UUID {
-	if !u.Valid {
-		return nil
-	}
-	uid := uuid.UUID(u.Bytes)
-	return &uid
-}
-
-func timeFromPgtype(t pgtype.Timestamptz) *time.Time {
-	if !t.Valid {
-		return nil
-	}
-	return &t.Time
-}
-
-func timestampFromTime(t *time.Time) pgtype.Timestamptz {
-	if t == nil {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	return pgtype.Timestamptz{Time: *t, Valid: true}
-}
-
-func int4FromInt32(i *int32) pgtype.Int4 {
-	if i == nil {
-		return pgtype.Int4{Valid: false}
-	}
-	return pgtype.Int4{Int32: *i, Valid: true}
-}
-
-func float8FromFloat64(f *float64) pgtype.Float8 {
-	if f == nil {
-		return pgtype.Float8{Valid: false}
-	}
-	return pgtype.Float8{Float64: *f, Valid: true}
-}
-
-func numericFromFloat64(f *float64) pgtype.Numeric {
-	if f == nil {
-		return pgtype.Numeric{Valid: false}
-	}
-	// Convert float64 to pgtype.Numeric
-	var num pgtype.Numeric
-	if err := num.Scan(fmt.Sprintf("%f", *f)); err != nil {
-		return pgtype.Numeric{Valid: false}
-	}
-	return num
-}
-
-func dateFromTime(t *time.Time) pgtype.Date {
-	if t == nil {
-		return pgtype.Date{Valid: false}
-	}
-	return pgtype.Date{Time: *t, Valid: true}
-}
-
-func uuidToPgtype(u uuid.UUID) pgtype.UUID {
-	var pg pgtype.UUID
-	copy(pg.Bytes[:], u[:])
-	pg.Valid = true
-	return pg
-}
 
 func packageFromSqlc(pkg sqlc.OpsPackage) operationsdto.Package {
 	return operationsdto.Package{
-		ID:           pkg.ID,
-		PackageName:  common.PgtypeTextToStringPtr(pkg.PackageName),
-		PackageType:  common.PgtypeTextToStringPtr(pkg.PackageType),
-		Quantity:     int32FromPgtype(pkg.Quantity),
-		LengthMeters: float64FromNumeric(pkg.LengthMeters),
-		WidthMeters:  float64FromNumeric(pkg.WidthMeters),
-		HeightMeters: float64FromNumeric(pkg.HeightMeters),
-		WeightKg:     float64FromNumeric(pkg.WeightKg),
-		VolumeCbm:    float64FromNumeric(pkg.VolumeCbm),
-		HSCode:       common.PgtypeTextToStringPtr(pkg.HsCode),
-		CargoType:    common.PgtypeTextToStringPtr(pkg.CargoType),
-		ContainerID:  common.PgtypeTextToStringPtr(pkg.ContainerID),
-		Notes:        common.PgtypeTextToStringPtr(pkg.Notes),
+		ID:                        pkg.ID,
+		ContainerNo:               common.PgtypeTextToStringPtr(pkg.ContainerNo),
+		ContainerName:             common.PgtypeTextToStringPtr(pkg.ContainerName),
+		ContainerSize:             common.PgtypeTextToStringPtr(pkg.ContainerSize),
+		GrossWeightKg:             float64FromNumeric(pkg.GrossWeightKg),
+		NetWeightKg:               float64FromNumeric(pkg.NetWeightKg),
+		Volume:                    float64FromNumeric(pkg.Volume),
+		CarrierSealNo:             common.PgtypeTextToStringPtr(pkg.CarrierSealNo),
+		CommodityCargoDescription: common.PgtypeTextToStringPtr(pkg.CommodityCargoDescription),
+		PackageType:               common.PgtypeTextToStringPtr(pkg.PackageType),
+		CargoType:                 common.PgtypeTextToStringPtr(pkg.CargoType),
+		NoOfPackages:              float64FromNumeric(pkg.NoOfPackages),
+		ChargeableWeight:          float64FromNumeric(pkg.ChargeableWeight),
+		HSCode:                    common.PgtypeTextToStringPtr(pkg.HsCode),
+		TemperatureControl:        boolFromPgtype(pkg.TemperatureControl),
 	}
 }
 
@@ -907,22 +835,35 @@ func carrierFromSqlc(carrier sqlc.OpsCarrier) operationsdto.Carrier {
 	if carrier.FlightDate.Valid {
 		flightDate = &carrier.FlightDate.Time
 	}
+	var airportReportDate *time.Time
+	if carrier.AirportReportDate.Valid {
+		airportReportDate = &carrier.AirportReportDate.Time
+	}
 	return operationsdto.Carrier{
 		ID:                     carrier.ID,
 		CarrierPartyID:         uuidFromPgtype(carrier.CarrierPartyID),
 		CarrierName:            common.PgtypeTextToStringPtr(carrier.CarrierName),
+		CarrierContact:         common.PgtypeTextToStringPtr(carrier.CarrierContact),
 		VesselName:             common.PgtypeTextToStringPtr(carrier.VesselName),
 		VoyageNumber:           common.PgtypeTextToStringPtr(carrier.VoyageNumber),
 		FlightID:               common.PgtypeTextToStringPtr(carrier.FlightID),
 		FlightDate:             flightDate,
+		AirportReportDate:      airportReportDate,
 		VehicleNumber:          common.PgtypeTextToStringPtr(carrier.VehicleNumber),
+		VehicleType:            common.PgtypeTextToStringPtr(carrier.VehicleType),
 		RouteDetails:           common.PgtypeTextToStringPtr(carrier.RouteDetails),
 		DriverName:             common.PgtypeTextToStringPtr(carrier.DriverName),
+		DriverContact:          common.PgtypeTextToStringPtr(carrier.DriverContact),
 		OriginPortStation:      common.PgtypeTextToStringPtr(carrier.OriginPortStation),
 		DestinationPortStation: common.PgtypeTextToStringPtr(carrier.DestinationPortStation),
+		OriginCountry:          common.PgtypeTextToStringPtr(carrier.OriginCountry),
+		DestinationCountry:     common.PgtypeTextToStringPtr(carrier.DestinationCountry),
 		AccountingInfo:         common.PgtypeTextToStringPtr(carrier.AccountingInfo),
 		HandlingInfo:           common.PgtypeTextToStringPtr(carrier.HandlingInfo),
-		SupportingDocURL:       common.PgtypeTextToStringPtr(carrier.SupportingDocUrl),
+		TransportDocumentRef:   common.PgtypeTextToStringPtr(carrier.TransportDocumentReference),
+		SupportingDocURLs:      stringsFromStringArray(carrier.SupportingDocUrl),
+		FileRegion:             common.PgtypeTextToStringPtr(carrier.FileRegion),
+		Description:            common.PgtypeTextToStringPtr(carrier.Description),
 	}
 }
 
@@ -931,8 +872,8 @@ func documentFromSqlc(doc sqlc.OpsJobDocument) operationsdto.Document {
 		ID:          doc.ID,
 		DocTypeCode: common.PgtypeTextToStringPtr(doc.DocTypeCode),
 		DocNumber:   common.PgtypeTextToStringPtr(doc.DocNumber),
-		IssuedAt:    timestampToStringPtr(doc.IssuedAt),
-		IssuedDate:  timeFromDate(doc.IssuedDate),
+		IssuedAt:    common.PgtypeTextToStringPtr(doc.IssuedAt),
+		IssuedDate:  timeFromTimestamptz(doc.IssuedDate),
 		Description: common.PgtypeTextToStringPtr(doc.Description),
 		FileKey:     common.PgtypeTextToStringPtr(doc.FileKey),
 		FileRegion:  common.PgtypeTextToStringPtr(doc.FileRegion),
@@ -956,7 +897,8 @@ func billingFromSqlc(b sqlc.ListJobBillingRow) operationsdto.Billing {
 		Amount:                float64FromNumeric(b.Amount),
 		Description:           common.PgtypeTextToStringPtr(b.Description),
 		Notes:                 common.PgtypeTextToStringPtr(b.Notes),
-		SupportingDocURL:      common.PgtypeTextToStringPtr(b.SupportingDocUrl),
+		SupportingDocURLs:     stringsFromStringArray(b.SupportingDocUrl),
+		FileRegion:            common.PgtypeTextToStringPtr(b.FileRegion),
 		AmountPrimaryCurrency: float64FromNumeric(b.AmountPrimaryCurrency),
 	}
 }
@@ -978,7 +920,8 @@ func provisionFromSqlc(p sqlc.ListJobProvisionsRow) operationsdto.Provision {
 		Amount:                float64FromNumeric(p.Amount),
 		PaymentPriority:       common.PgtypeTextToStringPtr(p.PaymentPriority),
 		Notes:                 common.PgtypeTextToStringPtr(p.Notes),
-		SupportingDocURL:      common.PgtypeTextToStringPtr(p.SupportingDocUrl),
+		SupportingDocURLs:     stringsFromStringArray(p.SupportingDocUrl),
+		FileRegion:            common.PgtypeTextToStringPtr(p.FileRegion),
 		AmountPrimaryCurrency: float64FromNumeric(p.AmountPrimaryCurrency),
 		Profit:                float64FromNumeric(p.Profit),
 	}
@@ -992,83 +935,9 @@ func trackingFromSqlc(t sqlc.OpsTracking) operationsdto.Tracking {
 		ATDDate:        timeFromPgtype(t.AtdDate),
 		ATADate:        timeFromPgtype(t.AtaDate),
 		JobStatus:      common.PgtypeTextToStringPtr(t.JobStatus),
-		PODStatus:      common.PgtypeTextToStringPtr(t.PodStatus),
+		PODDocURLs:     stringsFromStringArray(t.PodDocUrls),
+		FileRegion:     common.PgtypeTextToStringPtr(t.FileRegion),
 		DocumentStatus: common.PgtypeTextToStringPtr(t.DocumentStatus),
 		Notes:          common.PgtypeTextToStringPtr(t.Notes),
 	}
-}
-
-func int32FromPgtype(i pgtype.Int4) *int32 {
-	if !i.Valid {
-		return nil
-	}
-	return &i.Int32
-}
-
-func float64FromPgtype(f pgtype.Float8) *float64 {
-	if !f.Valid {
-		return nil
-	}
-	return &f.Float64
-}
-
-func float64FromNumeric(n pgtype.Numeric) *float64 {
-	if !n.Valid {
-		return nil
-	}
-	// Convert pgtype.Numeric to float64
-	f, err := n.Float64Value()
-	if err != nil {
-		return nil
-	}
-	if f.Valid {
-		return &f.Float64
-	}
-	return nil
-}
-
-func timeFromDate(d pgtype.Date) *time.Time {
-	if !d.Valid {
-		return nil
-	}
-	return &d.Time
-}
-
-func int2FromString(s *string) pgtype.Int2 {
-	if s == nil {
-		return pgtype.Int2{Valid: false}
-	}
-	var i int16
-	_, err := fmt.Sscanf(*s, "%d", &i)
-	if err != nil {
-		return pgtype.Int2{Valid: false}
-	}
-	return pgtype.Int2{Int16: i, Valid: true}
-}
-
-func int2ToStringPtr(i pgtype.Int2) *string {
-	if !i.Valid {
-		return nil
-	}
-	s := fmt.Sprintf("%d", i.Int16)
-	return &s
-}
-
-func timestampFromString(s *string) pgtype.Timestamptz {
-	if s == nil {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	t, err := time.Parse(time.RFC3339, *s)
-	if err != nil {
-		return pgtype.Timestamptz{Valid: false}
-	}
-	return pgtype.Timestamptz{Time: t, Valid: true}
-}
-
-func timestampToStringPtr(t pgtype.Timestamptz) *string {
-	if !t.Valid {
-		return nil
-	}
-	s := t.Time.Format(time.RFC3339)
-	return &s
 }

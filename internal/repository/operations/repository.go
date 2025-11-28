@@ -38,8 +38,8 @@ func (r *Repository) withQueries(ctx context.Context, fn func(*sqlc.Queries) err
 // LOOKUP METHODS
 // ============================================================
 
-func (r *Repository) ListTransportModeServiceLookups(ctx context.Context) ([]sqlc.TransMoveServiceLu, error) {
-	var rows []sqlc.TransMoveServiceLu
+func (r *Repository) ListTransportModeServiceLookups(ctx context.Context) ([]sqlc.ListTransportModeServiceLookupsRow, error) {
+	var rows []sqlc.ListTransportModeServiceLookupsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
 		rows, err = q.ListTransportModeServiceLookups(ctx)
@@ -48,8 +48,8 @@ func (r *Repository) ListTransportModeServiceLookups(ctx context.Context) ([]sql
 	return rows, err
 }
 
-func (r *Repository) ListJobStatusLookups(ctx context.Context) ([]sqlc.JobStatusLu, error) {
-	var rows []sqlc.JobStatusLu
+func (r *Repository) ListJobStatusLookups(ctx context.Context) ([]sqlc.ListJobStatusLookupsRow, error) {
+	var rows []sqlc.ListJobStatusLookupsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
 		rows, err = q.ListJobStatusLookups(ctx)
@@ -58,8 +58,8 @@ func (r *Repository) ListJobStatusLookups(ctx context.Context) ([]sqlc.JobStatus
 	return rows, err
 }
 
-func (r *Repository) ListDocumentStatusLookups(ctx context.Context) ([]sqlc.DocumentStatusLu, error) {
-	var rows []sqlc.DocumentStatusLu
+func (r *Repository) ListDocumentStatusLookups(ctx context.Context) ([]sqlc.ListDocumentStatusLookupsRow, error) {
+	var rows []sqlc.ListDocumentStatusLookupsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
 		rows, err = q.ListDocumentStatusLookups(ctx)
@@ -68,8 +68,8 @@ func (r *Repository) ListDocumentStatusLookups(ctx context.Context) ([]sqlc.Docu
 	return rows, err
 }
 
-func (r *Repository) ListPriorityLookups(ctx context.Context) ([]sqlc.PriorityLu, error) {
-	var rows []sqlc.PriorityLu
+func (r *Repository) ListPriorityLookups(ctx context.Context) ([]sqlc.ListPriorityLookupsRow, error) {
+	var rows []sqlc.ListPriorityLookupsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
 		rows, err = q.ListPriorityLookups(ctx)
@@ -78,8 +78,8 @@ func (r *Repository) ListPriorityLookups(ctx context.Context) ([]sqlc.PriorityLu
 	return rows, err
 }
 
-func (r *Repository) ListRoleDetailsLookups(ctx context.Context) ([]sqlc.RoleDetailsLu, error) {
-	var rows []sqlc.RoleDetailsLu
+func (r *Repository) ListRoleDetailsLookups(ctx context.Context) ([]sqlc.ListRoleDetailsLookupsRow, error) {
+	var rows []sqlc.ListRoleDetailsLookupsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
 		rows, err = q.ListRoleDetailsLookups(ctx)
@@ -88,8 +88,8 @@ func (r *Repository) ListRoleDetailsLookups(ctx context.Context) ([]sqlc.RoleDet
 	return rows, err
 }
 
-func (r *Repository) ListBranchLookups(ctx context.Context) ([]sqlc.BranchLu, error) {
-	var rows []sqlc.BranchLu
+func (r *Repository) ListBranchLookups(ctx context.Context) ([]sqlc.ListBranchLookupsRow, error) {
+	var rows []sqlc.ListBranchLookupsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
 		rows, err = q.ListBranchLookups(ctx)
@@ -216,14 +216,16 @@ func (r *Repository) CreateJobPackage(ctx context.Context, params sqlc.CreateJob
 // JOB CARRIER METHODS
 // ============================================================
 
-func (r *Repository) GetJobCarrier(ctx context.Context, jobID uuid.UUID) (sqlc.OpsCarrier, error) {
-	var carrier sqlc.OpsCarrier
+func (r *Repository) GetJobCarriers(ctx context.Context, jobID uuid.UUID) ([]sqlc.OpsCarrier, error) {
+	var carriers []sqlc.OpsCarrier
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		carrier, err = q.GetJobCarrier(ctx, jobID)
+		var bytes [16]byte
+		copy(bytes[:], jobID[:])
+		carriers, err = q.GetJobCarriers(ctx, pgtype.UUID{Bytes: bytes, Valid: true})
 		return err
 	})
-	return carrier, err
+	return carriers, err
 }
 
 func (r *Repository) CreateJobCarrier(ctx context.Context, params sqlc.CreateJobCarrierParams) (sqlc.OpsCarrier, error) {
@@ -278,7 +280,9 @@ func (r *Repository) ListJobBilling(ctx context.Context, jobID uuid.UUID) ([]sql
 	var rows []sqlc.ListJobBillingRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		rows, err = q.ListJobBilling(ctx, jobID)
+		var bytes [16]byte
+		copy(bytes[:], jobID[:])
+		rows, err = q.ListJobBilling(ctx, pgtype.UUID{Bytes: bytes, Valid: true})
 		return err
 	})
 	return rows, err
@@ -302,7 +306,9 @@ func (r *Repository) ListJobProvisions(ctx context.Context, jobID uuid.UUID) ([]
 	var rows []sqlc.ListJobProvisionsRow
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		rows, err = q.ListJobProvisions(ctx, jobID)
+		var bytes [16]byte
+		copy(bytes[:], jobID[:])
+		rows, err = q.ListJobProvisions(ctx, pgtype.UUID{Bytes: bytes, Valid: true})
 		return err
 	})
 	return rows, err
@@ -326,7 +332,9 @@ func (r *Repository) GetJobTracking(ctx context.Context, jobID uuid.UUID) (sqlc.
 	var tracking sqlc.OpsTracking
 	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
 		var err error
-		tracking, err = q.GetJobTracking(ctx, jobID)
+		var bytes [16]byte
+		copy(bytes[:], jobID[:])
+		tracking, err = q.GetJobTracking(ctx, pgtype.UUID{Bytes: bytes, Valid: true})
 		return err
 	})
 	return tracking, err

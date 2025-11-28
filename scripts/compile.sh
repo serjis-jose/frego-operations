@@ -5,7 +5,7 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 GO_BIN=${GO:-go}
 MAKE_BIN=${MAKE:-make}
 OUTPUT_DIR=${OUTPUT_DIR:-"$ROOT_DIR/bin"}
-BINARY_NAME=${BINARY_NAME:-finance-server}
+BINARY_NAME=${BINARY_NAME:-operations-server}
 SKIP_GENERATE=${SKIP_GENERATE:-0}
 GOCACHE_DIR=${GOCACHE:-"$ROOT_DIR/.cache/go-build"}
 

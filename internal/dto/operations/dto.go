@@ -195,19 +195,21 @@ type JobDetail struct {
 
 // Package represents a job package
 type Package struct {
-	ID           uuid.UUID
-	PackageName  *string
-	PackageType  *string
-	Quantity     *int32
-	LengthMeters *float64
-	WidthMeters  *float64
-	HeightMeters *float64
-	WeightKg     *float64
-	VolumeCbm    *float64
-	HSCode       *string
-	CargoType    *string
-	ContainerID  *string
-	Notes        *string
+	ID                        uuid.UUID
+	ContainerNo               *string
+	ContainerName             *string
+	ContainerSize             *string
+	GrossWeightKg             *float64
+	NetWeightKg               *float64
+	Volume                    *float64
+	CarrierSealNo             *string
+	CommodityCargoDescription *string
+	PackageType               *string
+	CargoType                 *string
+	NoOfPackages              *float64
+	ChargeableWeight          *float64
+	HSCode                    *string
+	TemperatureControl        bool
 }
 
 // Carrier represents job carrier information
@@ -215,18 +217,27 @@ type Carrier struct {
 	ID                     uuid.UUID
 	CarrierPartyID         *uuid.UUID
 	CarrierName            *string
+	CarrierContact         *string
 	VesselName             *string
 	VoyageNumber           *string
 	FlightID               *string
 	FlightDate             *time.Time
+	AirportReportDate      *time.Time
 	VehicleNumber          *string
+	VehicleType            *string
 	RouteDetails           *string
 	DriverName             *string
+	DriverContact          *string
 	OriginPortStation      *string
 	DestinationPortStation *string
+	OriginCountry          *string
+	DestinationCountry     *string
 	AccountingInfo         *string
 	HandlingInfo           *string
-	SupportingDocURL       *string
+	TransportDocumentRef   *string
+	SupportingDocURLs      []string
+	FileRegion             *string
+	Description            *string
 }
 
 // Document represents a job document
@@ -254,7 +265,8 @@ type Billing struct {
 	Amount                *float64
 	Description           *string
 	Notes                 *string
-	SupportingDocURL      *string
+	SupportingDocURLs     []string
+	FileRegion            *string
 	AmountPrimaryCurrency *float64
 }
 
@@ -271,7 +283,8 @@ type Provision struct {
 	Amount                *float64
 	PaymentPriority       *string
 	Notes                 *string
-	SupportingDocURL      *string
+	SupportingDocURLs     []string
+	FileRegion            *string
 	AmountPrimaryCurrency *float64
 	Profit                *float64
 }
@@ -284,7 +297,8 @@ type Tracking struct {
 	ATDDate        *time.Time
 	ATADate        *time.Time
 	JobStatus      *string
-	PODStatus      *string
+	PODDocURLs     []string
+	FileRegion     *string
 	DocumentStatus *string
 	Notes          *string
 }

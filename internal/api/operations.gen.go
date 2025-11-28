@@ -8,25 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 	openapi_types "github.com/oapi-codegen/runtime/types"
-)
-
-const (
-	BearerAuthScopes = "BearerAuth.Scopes"
-)
-
-// Defines values for InvoiceApprovalStatus.
-const (
-	Approved        InvoiceApprovalStatus = "Approved"
-	Draft           InvoiceApprovalStatus = "Draft"
-	PendingApproval InvoiceApprovalStatus = "Pending Approval"
-	Posted          InvoiceApprovalStatus = "Posted"
-	Returned        InvoiceApprovalStatus = "Returned"
 )
 
 // Error defines model for Error.
@@ -36,65 +22,18 @@ type Error struct {
 	Message string                  `json:"message"`
 }
 
-// Invoice defines model for Invoice.
-type Invoice struct {
-	ApprovalStatus   *InvoiceApprovalStatus `json:"approval_status,omitempty"`
-	CreatedAt        *time.Time             `json:"created_at,omitempty"`
-	CurrencyCode     string                 `json:"currency_code"`
-	CustomerId       openapi_types.UUID     `json:"customer_id"`
-	GrandTotalAmount *float64               `json:"grand_total_amount,omitempty"`
-	Id               *openapi_types.UUID    `json:"id,omitempty"`
-	InvoiceDate      openapi_types.Date     `json:"invoice_date"`
-	InvoiceNo        string                 `json:"invoice_no"`
-	InvoiceType      *string                `json:"invoice_type,omitempty"`
-	JobId            *openapi_types.UUID    `json:"job_id,omitempty"`
-}
-
-// InvoiceApprovalStatus defines model for Invoice.ApprovalStatus.
-type InvoiceApprovalStatus string
-
-// Receipt defines model for Receipt.
-type Receipt struct {
-	ApprovalStatus         *string             `json:"approval_status,omitempty"`
-	CurrencyCode           string              `json:"currency_code"`
-	CustomerId             openapi_types.UUID  `json:"customer_id"`
-	Id                     *openapi_types.UUID `json:"id,omitempty"`
-	ReceiptDate            openapi_types.Date  `json:"receipt_date"`
-	ReceiptNo              string              `json:"receipt_no"`
-	ReceivedAmountCustomer *float64            `json:"received_amount_customer,omitempty"`
-}
-
-// ListInvoicesParams defines parameters for ListInvoices.
-type ListInvoicesParams struct {
-	CustomerId *openapi_types.UUID `form:"customer_id,omitempty" json:"customer_id,omitempty"`
-	Status     *string             `form:"status,omitempty" json:"status,omitempty"`
-	Limit      *int                `form:"limit,omitempty" json:"limit,omitempty"`
-	Offset     *int                `form:"offset,omitempty" json:"offset,omitempty"`
-}
-
 // ProvisionTenantJSONBody defines parameters for ProvisionTenant.
 type ProvisionTenantJSONBody struct {
-	// Actor User/actor performing the provisioning
-	Actor *string `json:"actor,omitempty"`
-
-	// DisplayName Tenant display name (used to compute schema name)
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// TenantId Tenant identifier
-	TenantId openapi_types.UUID `json:"tenantId"`
+	Actor       *string            `json:"actor,omitempty"`
+	DisplayName *string            `json:"displayName,omitempty"`
+	TenantId    openapi_types.UUID `json:"tenantId"`
 }
 
 // ProvisionTenantParams defines parameters for ProvisionTenant.
 type ProvisionTenantParams struct {
-	// Secret Internal secret used for provisioning authorization
+	// Secret Internal secret for provisioning authorization
 	Secret string `json:"Secret"`
 }
-
-// CreateInvoiceJSONRequestBody defines body for CreateInvoice for application/json ContentType.
-type CreateInvoiceJSONRequestBody = Invoice
-
-// CreateReceiptJSONRequestBody defines body for CreateReceipt for application/json ContentType.
-type CreateReceiptJSONRequestBody = Receipt
 
 // ProvisionTenantJSONRequestBody defines body for ProvisionTenant for application/json ContentType.
 type ProvisionTenantJSONRequestBody ProvisionTenantJSONBody
@@ -104,22 +43,7 @@ type ServerInterface interface {
 	// Health check
 	// (GET /health)
 	HealthCheck(w http.ResponseWriter, r *http.Request)
-	// List invoices
-	// (GET /invoices)
-	ListInvoices(w http.ResponseWriter, r *http.Request, params ListInvoicesParams)
-	// Create invoice
-	// (POST /invoices)
-	CreateInvoice(w http.ResponseWriter, r *http.Request)
-	// Get invoice
-	// (GET /invoices/{invoice_id})
-	GetInvoice(w http.ResponseWriter, r *http.Request, invoiceId openapi_types.UUID)
-	// List receipts
-	// (GET /receipts)
-	ListReceipts(w http.ResponseWriter, r *http.Request)
-	// Create receipt
-	// (POST /receipts)
-	CreateReceipt(w http.ResponseWriter, r *http.Request)
-	// Provision finance schema for a tenant
+	// Provision operations schema for a tenant
 	// (POST /tenants/provision)
 	ProvisionTenant(w http.ResponseWriter, r *http.Request, params ProvisionTenantParams)
 }
@@ -134,37 +58,7 @@ func (_ Unimplemented) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// List invoices
-// (GET /invoices)
-func (_ Unimplemented) ListInvoices(w http.ResponseWriter, r *http.Request, params ListInvoicesParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Create invoice
-// (POST /invoices)
-func (_ Unimplemented) CreateInvoice(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Get invoice
-// (GET /invoices/{invoice_id})
-func (_ Unimplemented) GetInvoice(w http.ResponseWriter, r *http.Request, invoiceId openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// List receipts
-// (GET /receipts)
-func (_ Unimplemented) ListReceipts(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Create receipt
-// (POST /receipts)
-func (_ Unimplemented) CreateReceipt(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// Provision finance schema for a tenant
+// Provision operations schema for a tenant
 // (POST /tenants/provision)
 func (_ Unimplemented) ProvisionTenant(w http.ResponseWriter, r *http.Request, params ProvisionTenantParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -184,154 +78,6 @@ func (siw *ServerInterfaceWrapper) HealthCheck(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.HealthCheck(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListInvoices operation middleware
-func (siw *ServerInterfaceWrapper) ListInvoices(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params ListInvoicesParams
-
-	// ------------- Optional query parameter "customer_id" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "customer_id", r.URL.Query(), &params.CustomerId)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customer_id", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "status" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "status", r.URL.Query(), &params.Status)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "offset" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListInvoices(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateInvoice operation middleware
-func (siw *ServerInterfaceWrapper) CreateInvoice(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateInvoice(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetInvoice operation middleware
-func (siw *ServerInterfaceWrapper) GetInvoice(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// ------------- Path parameter "invoice_id" -------------
-	var invoiceId openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "invoice_id", chi.URLParam(r, "invoice_id"), &invoiceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invoice_id", Err: err})
-		return
-	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetInvoice(w, r, invoiceId)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListReceipts operation middleware
-func (siw *ServerInterfaceWrapper) ListReceipts(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListReceipts(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// CreateReceipt operation middleware
-func (siw *ServerInterfaceWrapper) CreateReceipt(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.CreateReceipt(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -502,21 +248,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/health", wrapper.HealthCheck)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/invoices", wrapper.ListInvoices)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/invoices", wrapper.CreateInvoice)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/invoices/{invoice_id}", wrapper.GetInvoice)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/receipts", wrapper.ListReceipts)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/receipts", wrapper.CreateReceipt)
-	})
-	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/tenants/provision", wrapper.ProvisionTenant)
 	})
 
@@ -538,128 +269,6 @@ func (response HealthCheck200TextResponse) VisitHealthCheckResponse(w http.Respo
 
 	_, err := w.Write([]byte(response))
 	return err
-}
-
-type ListInvoicesRequestObject struct {
-	Params ListInvoicesParams
-}
-
-type ListInvoicesResponseObject interface {
-	VisitListInvoicesResponse(w http.ResponseWriter) error
-}
-
-type ListInvoices200JSONResponse struct {
-	Invoices *[]Invoice `json:"invoices,omitempty"`
-	Total    *int       `json:"total,omitempty"`
-}
-
-func (response ListInvoices200JSONResponse) VisitListInvoicesResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type ListInvoices401Response struct {
-}
-
-func (response ListInvoices401Response) VisitListInvoicesResponse(w http.ResponseWriter) error {
-	w.WriteHeader(401)
-	return nil
-}
-
-type ListInvoices403Response struct {
-}
-
-func (response ListInvoices403Response) VisitListInvoicesResponse(w http.ResponseWriter) error {
-	w.WriteHeader(403)
-	return nil
-}
-
-type CreateInvoiceRequestObject struct {
-	Body *CreateInvoiceJSONRequestBody
-}
-
-type CreateInvoiceResponseObject interface {
-	VisitCreateInvoiceResponse(w http.ResponseWriter) error
-}
-
-type CreateInvoice201JSONResponse Invoice
-
-func (response CreateInvoice201JSONResponse) VisitCreateInvoiceResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateInvoice400JSONResponse Error
-
-func (response CreateInvoice400JSONResponse) VisitCreateInvoiceResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(400)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetInvoiceRequestObject struct {
-	InvoiceId openapi_types.UUID `json:"invoice_id"`
-}
-
-type GetInvoiceResponseObject interface {
-	VisitGetInvoiceResponse(w http.ResponseWriter) error
-}
-
-type GetInvoice200JSONResponse Invoice
-
-func (response GetInvoice200JSONResponse) VisitGetInvoiceResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type GetInvoice404Response struct {
-}
-
-func (response GetInvoice404Response) VisitGetInvoiceResponse(w http.ResponseWriter) error {
-	w.WriteHeader(404)
-	return nil
-}
-
-type ListReceiptsRequestObject struct {
-}
-
-type ListReceiptsResponseObject interface {
-	VisitListReceiptsResponse(w http.ResponseWriter) error
-}
-
-type ListReceipts200JSONResponse struct {
-	Receipts *[]Receipt `json:"receipts,omitempty"`
-}
-
-func (response ListReceipts200JSONResponse) VisitListReceiptsResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type CreateReceiptRequestObject struct {
-	Body *CreateReceiptJSONRequestBody
-}
-
-type CreateReceiptResponseObject interface {
-	VisitCreateReceiptResponse(w http.ResponseWriter) error
-}
-
-type CreateReceipt201JSONResponse Receipt
-
-func (response CreateReceipt201JSONResponse) VisitCreateReceiptResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
 }
 
 type ProvisionTenantRequestObject struct {
@@ -707,22 +316,7 @@ type StrictServerInterface interface {
 	// Health check
 	// (GET /health)
 	HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error)
-	// List invoices
-	// (GET /invoices)
-	ListInvoices(ctx context.Context, request ListInvoicesRequestObject) (ListInvoicesResponseObject, error)
-	// Create invoice
-	// (POST /invoices)
-	CreateInvoice(ctx context.Context, request CreateInvoiceRequestObject) (CreateInvoiceResponseObject, error)
-	// Get invoice
-	// (GET /invoices/{invoice_id})
-	GetInvoice(ctx context.Context, request GetInvoiceRequestObject) (GetInvoiceResponseObject, error)
-	// List receipts
-	// (GET /receipts)
-	ListReceipts(ctx context.Context, request ListReceiptsRequestObject) (ListReceiptsResponseObject, error)
-	// Create receipt
-	// (POST /receipts)
-	CreateReceipt(ctx context.Context, request CreateReceiptRequestObject) (CreateReceiptResponseObject, error)
-	// Provision finance schema for a tenant
+	// Provision operations schema for a tenant
 	// (POST /tenants/provision)
 	ProvisionTenant(ctx context.Context, request ProvisionTenantRequestObject) (ProvisionTenantResponseObject, error)
 }
@@ -773,144 +367,6 @@ func (sh *strictHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(HealthCheckResponseObject); ok {
 		if err := validResponse.VisitHealthCheckResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListInvoices operation middleware
-func (sh *strictHandler) ListInvoices(w http.ResponseWriter, r *http.Request, params ListInvoicesParams) {
-	var request ListInvoicesRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListInvoices(ctx, request.(ListInvoicesRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListInvoices")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListInvoicesResponseObject); ok {
-		if err := validResponse.VisitListInvoicesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateInvoice operation middleware
-func (sh *strictHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
-	var request CreateInvoiceRequestObject
-
-	var body CreateInvoiceJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateInvoice(ctx, request.(CreateInvoiceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateInvoice")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateInvoiceResponseObject); ok {
-		if err := validResponse.VisitCreateInvoiceResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetInvoice operation middleware
-func (sh *strictHandler) GetInvoice(w http.ResponseWriter, r *http.Request, invoiceId openapi_types.UUID) {
-	var request GetInvoiceRequestObject
-
-	request.InvoiceId = invoiceId
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetInvoice(ctx, request.(GetInvoiceRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetInvoice")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetInvoiceResponseObject); ok {
-		if err := validResponse.VisitGetInvoiceResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListReceipts operation middleware
-func (sh *strictHandler) ListReceipts(w http.ResponseWriter, r *http.Request) {
-	var request ListReceiptsRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListReceipts(ctx, request.(ListReceiptsRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListReceipts")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListReceiptsResponseObject); ok {
-		if err := validResponse.VisitListReceiptsResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// CreateReceipt operation middleware
-func (sh *strictHandler) CreateReceipt(w http.ResponseWriter, r *http.Request) {
-	var request CreateReceiptRequestObject
-
-	var body CreateReceiptJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateReceipt(ctx, request.(CreateReceiptRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateReceipt")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateReceiptResponseObject); ok {
-		if err := validResponse.VisitCreateReceiptResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

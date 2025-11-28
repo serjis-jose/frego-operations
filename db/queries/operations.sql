@@ -310,68 +310,82 @@ ORDER BY created_at;
 -- name: CreateJobPackage :one
 INSERT INTO ops_package (
     job_id,
-    package_name,
+    container_no,
+    container_name,
+    container_size,
+    gross_weight_kg,
+    net_weight_kg,
+    volume,
+    carrier_seal_no,
+    commodity_cargo_description,
     package_type,
-    quantity,
-    length_meters,
-    width_meters,
-    height_meters,
-    weight_kg,
-    volume_cbm,
-    hs_code,
     cargo_type,
-    container_id,
-    notes,
+    no_of_packages,
+    chargeable_weight,
+    hs_code,
+    temperature_control,
     created_at,
     created_by,
     is_active
 ) VALUES (
     sqlc.arg(job_id),
-    sqlc.narg(package_name),
+    sqlc.narg(container_no),
+    sqlc.narg(container_name),
+    sqlc.narg(container_size),
+    sqlc.narg(gross_weight_kg),
+    sqlc.narg(net_weight_kg),
+    sqlc.narg(volume),
+    sqlc.narg(carrier_seal_no),
+    sqlc.narg(commodity_cargo_description),
     sqlc.narg(package_type),
-    sqlc.narg(quantity),
-    sqlc.narg(length_meters),
-    sqlc.narg(width_meters),
-    sqlc.narg(height_meters),
-    sqlc.narg(weight_kg),
-    sqlc.narg(volume_cbm),
-    sqlc.narg(hs_code),
     sqlc.narg(cargo_type),
-    sqlc.narg(container_id),
-    sqlc.narg(notes),
+    sqlc.narg(no_of_packages),
+    sqlc.narg(chargeable_weight),
+    sqlc.narg(hs_code),
+    sqlc.arg(temperature_control),
     now(),
     sqlc.arg(actor),
     true
 ) RETURNING *;
 
+
 -- ============================================================
 -- JOB CARRIER QUERIES
 -- ============================================================
 
--- name: GetJobCarrier :one
+-- name: GetJobCarriers :many
 SELECT *
 FROM ops_carrier
 WHERE job_id = sqlc.arg(job_id)
   AND is_active
-LIMIT 1;
+ORDER BY created_at;
 
 -- name: CreateJobCarrier :one
 INSERT INTO ops_carrier (
     job_id,
     carrier_party_id,
     carrier_name,
+    carrier_contact,
     vessel_name,
     voyage_number,
     flight_id,
     flight_date,
+    airport_report_date,
     vehicle_number,
+    vehicle_type,
     route_details,
     driver_name,
+    driver_contact,
     origin_port_station,
     destination_port_station,
+    origin_country,
+    destination_country,
     accounting_info,
     handling_info,
+    transport_document_reference,
     supporting_doc_url,
+    file_region,
+    description,
     created_at,
     created_by,
     is_active
@@ -379,18 +393,27 @@ INSERT INTO ops_carrier (
     sqlc.arg(job_id),
     sqlc.narg(carrier_party_id),
     sqlc.narg(carrier_name),
+    sqlc.narg(carrier_contact),
     sqlc.narg(vessel_name),
     sqlc.narg(voyage_number),
     sqlc.narg(flight_id),
     sqlc.narg(flight_date),
+    sqlc.narg(airport_report_date),
     sqlc.narg(vehicle_number),
+    sqlc.narg(vehicle_type),
     sqlc.narg(route_details),
     sqlc.narg(driver_name),
+    sqlc.narg(driver_contact),
     sqlc.narg(origin_port_station),
     sqlc.narg(destination_port_station),
+    sqlc.narg(origin_country),
+    sqlc.narg(destination_country),
     sqlc.narg(accounting_info),
     sqlc.narg(handling_info),
-    sqlc.narg(supporting_doc_url),
+    sqlc.narg(transport_document_reference),
+    sqlc.narg(doc_urls),
+    sqlc.narg(file_region),
+    sqlc.narg(description),
     now(),
     sqlc.arg(actor),
     true
@@ -401,21 +424,31 @@ UPDATE ops_carrier
 SET
     carrier_party_id = COALESCE(sqlc.narg(carrier_party_id), carrier_party_id),
     carrier_name = COALESCE(sqlc.narg(carrier_name), carrier_name),
+    carrier_contact = COALESCE(sqlc.narg(carrier_contact), carrier_contact),
     vessel_name = COALESCE(sqlc.narg(vessel_name), vessel_name),
     voyage_number = COALESCE(sqlc.narg(voyage_number), voyage_number),
     flight_id = COALESCE(sqlc.narg(flight_id), flight_id),
     flight_date = COALESCE(sqlc.narg(flight_date), flight_date),
+    airport_report_date = COALESCE(sqlc.narg(airport_report_date), airport_report_date),
     vehicle_number = COALESCE(sqlc.narg(vehicle_number), vehicle_number),
+    vehicle_type = COALESCE(sqlc.narg(vehicle_type), vehicle_type),
     route_details = COALESCE(sqlc.narg(route_details), route_details),
     driver_name = COALESCE(sqlc.narg(driver_name), driver_name),
+    driver_contact = COALESCE(sqlc.narg(driver_contact), driver_contact),
     origin_port_station = COALESCE(sqlc.narg(origin_port_station), origin_port_station),
     destination_port_station = COALESCE(sqlc.narg(destination_port_station), destination_port_station),
+    origin_country = COALESCE(sqlc.narg(origin_country), origin_country),
+    destination_country = COALESCE(sqlc.narg(destination_country), destination_country),
     accounting_info = COALESCE(sqlc.narg(accounting_info), accounting_info),
     handling_info = COALESCE(sqlc.narg(handling_info), handling_info),
-    supporting_doc_url = COALESCE(sqlc.narg(supporting_doc_url), supporting_doc_url),
+    transport_document_reference = COALESCE(sqlc.narg(transport_document_reference), transport_document_reference),
+    supporting_doc_url = COALESCE(sqlc.narg(doc_urls), supporting_doc_url),
+    file_region = COALESCE(sqlc.narg(file_region), file_region),
+    description = COALESCE(sqlc.narg(description), description),
     modified_at = now(),
     modified_by = sqlc.arg(actor)
 WHERE job_id = sqlc.arg(job_id)
+  AND id = sqlc.arg(carrier_id)
   AND is_active = true
 RETURNING *;
 
@@ -440,6 +473,17 @@ INSERT INTO ops_job_document (
     description,
     file_key,
     file_region,
+    supporting_doc_urls,
+    bl_awb_uploads,
+    house_doc_number,
+    house_issued_at,
+    house_issued_date,
+    house_description,
+    partial_bl_number,
+    switch_bl_awb_number,
+    switch_bl_awb_issued_at,
+    switch_bl_awb_issued_date,
+    switch_bl_awb_description,
     created_at,
     created_by,
     is_active
@@ -452,10 +496,73 @@ INSERT INTO ops_job_document (
     sqlc.narg(description),
     sqlc.narg(file_key),
     sqlc.narg(file_region),
+    sqlc.narg(doc_urls),
+    sqlc.narg(bl_awb_uploads),
+    sqlc.narg(house_doc_number),
+    sqlc.narg(house_issued_at),
+    sqlc.narg(house_issued_date),
+    sqlc.narg(house_description),
+    sqlc.narg(partial_bl_number),
+    sqlc.narg(switch_bl_awb_number),
+    sqlc.narg(switch_bl_awb_issued_at),
+    sqlc.narg(switch_bl_awb_issued_date),
+    sqlc.narg(switch_bl_awb_description),
     now(),
     sqlc.arg(actor),
     true
 ) RETURNING *;
+
+-- ============================================================
+-- JOB PARTY QUERIES
+-- ============================================================
+
+-- name: GetJobParty :one
+SELECT *
+FROM ops_party
+WHERE job_id = sqlc.arg(job_id)
+  AND is_active;
+
+-- name: UpsertJobParty :one
+INSERT INTO ops_party (
+    job_id,
+    shipper_id,
+    consignee_id,
+    notify_party_id,
+    switch_bl_shipper_id,
+    switch_bl_consignee_id,
+    switch_bl_notify_party_id,
+    origin_agent_id,
+    destination_agent_id,
+    created_by,
+    modified_by
+)
+VALUES (
+    sqlc.arg(job_id),
+    sqlc.narg(shipper_id),
+    sqlc.narg(consignee_id),
+    sqlc.narg(notify_party_id),
+    sqlc.narg(switch_bl_shipper_id),
+    sqlc.narg(switch_bl_consignee_id),
+    sqlc.narg(switch_bl_notify_party_id),
+    sqlc.narg(origin_agent_id),
+    sqlc.narg(destination_agent_id),
+    sqlc.arg(actor),
+    sqlc.arg(actor)
+)
+ON CONFLICT (job_id) DO UPDATE
+SET
+    shipper_id = EXCLUDED.shipper_id,
+    consignee_id = EXCLUDED.consignee_id,
+    notify_party_id = EXCLUDED.notify_party_id,
+    switch_bl_shipper_id = EXCLUDED.switch_bl_shipper_id,
+    switch_bl_consignee_id = EXCLUDED.switch_bl_consignee_id,
+    switch_bl_notify_party_id = EXCLUDED.switch_bl_notify_party_id,
+    origin_agent_id = EXCLUDED.origin_agent_id,
+    destination_agent_id = EXCLUDED.destination_agent_id,
+    modified_at = now(),
+    modified_by = EXCLUDED.modified_by,
+    is_active = true
+RETURNING *;
 
 -- ============================================================
 -- JOB BILLING QUERIES
@@ -484,6 +591,7 @@ INSERT INTO ops_billing (
     description,
     notes,
     supporting_doc_url,
+    file_region,
     amount_primary_currency,
     created_at,
     created_by,
@@ -499,7 +607,8 @@ INSERT INTO ops_billing (
     sqlc.narg(amount),
     sqlc.narg(description),
     sqlc.narg(notes),
-    sqlc.narg(supporting_doc_url),
+    sqlc.narg(doc_urls),
+    sqlc.narg(file_region),
     sqlc.narg(amount_primary_currency),
     now(),
     sqlc.arg(actor),
@@ -533,6 +642,7 @@ INSERT INTO ops_provision (
     payment_priority,
     notes,
     supporting_doc_url,
+    file_region,
     amount_primary_currency,
     profit,
     created_at,
@@ -549,7 +659,8 @@ INSERT INTO ops_provision (
     sqlc.narg(amount),
     sqlc.narg(payment_priority),
     sqlc.narg(notes),
-    sqlc.narg(supporting_doc_url),
+    sqlc.narg(doc_urls),
+    sqlc.narg(file_region),
     sqlc.narg(amount_primary_currency),
     sqlc.narg(profit),
     now(),
@@ -576,7 +687,8 @@ INSERT INTO ops_tracking (
     atd_date,
     ata_date,
     job_status,
-    pod_status,
+    pod_doc_urls,
+    file_region,
     document_status,
     notes,
     created_at,
@@ -589,7 +701,8 @@ INSERT INTO ops_tracking (
     sqlc.narg(atd_date),
     sqlc.narg(ata_date),
     sqlc.narg(job_status),
-    sqlc.narg(pod_status),
+    sqlc.narg(doc_urls),
+    sqlc.narg(file_region),
     sqlc.narg(document_status),
     sqlc.narg(notes),
     now(),
@@ -603,9 +716,11 @@ DO UPDATE SET
     atd_date = COALESCE(EXCLUDED.atd_date, ops_tracking.atd_date),
     ata_date = COALESCE(EXCLUDED.ata_date, ops_tracking.ata_date),
     job_status = COALESCE(EXCLUDED.job_status, ops_tracking.job_status),
-    pod_status = COALESCE(EXCLUDED.pod_status, ops_tracking.pod_status),
+    pod_doc_urls = COALESCE(EXCLUDED.pod_doc_urls, ops_tracking.pod_doc_urls),
+    file_region = COALESCE(EXCLUDED.file_region, ops_tracking.file_region),
     document_status = COALESCE(EXCLUDED.document_status, ops_tracking.document_status),
     notes = COALESCE(EXCLUDED.notes, ops_tracking.notes),
     modified_at = now(),
     modified_by = EXCLUDED.created_by
 RETURNING *;
+
