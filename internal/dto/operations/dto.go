@@ -91,6 +91,12 @@ type IncotermLookup struct {
 	Version int32
 }
 
+// ActivityLookup represents an activity type/code pair.
+type ActivityLookup struct {
+	ActivityType string
+	ActivityCode string
+}
+
 // OperationsLookups aggregates all operations-related lookup data
 type OperationsLookups struct {
 	TransportModes       []string
@@ -98,6 +104,7 @@ type OperationsLookups struct {
 	ServiceTypes         map[string][]string
 	ServiceSubcategories map[string][]string
 	Incoterms            []IncotermLookup
+	Activities           []ActivityLookup
 	JobStatuses          []JobStatus
 	DocumentStatuses     []DocumentStatus
 	PriorityLevels       []PriorityLevel
@@ -197,7 +204,7 @@ type JobDetail struct {
 type Package struct {
 	ID                        uuid.UUID
 	ContainerNo               *string
-	ContainerName             *string
+	ContainerType             *string
 	ContainerSize             *string
 	GrossWeightKg             *float64
 	NetWeightKg               *float64
@@ -262,7 +269,13 @@ type Billing struct {
 	PONumber              *string
 	PODate                *time.Time
 	CurrencyCode          *string
-	Amount                *float64
+	Quantity              *float64
+	UnitPrice             *float64
+	AmountWithoutTax      *float64
+	TaxCode               *string
+	TaxAmount             *float64
+	ExchangeRate          *float64
+	TotalAmount           *float64
 	Description           *string
 	Notes                 *string
 	SupportingDocURLs     []string
@@ -280,7 +293,15 @@ type Provision struct {
 	InvoiceNumber         *string
 	InvoiceDate           *time.Time
 	CurrencyCode          *string
-	Amount                *float64
+	Quantity              *float64
+	UnitPrice             *float64
+	AmountWithoutTax      *float64
+	TaxCode               *string
+	TaxAmount             *float64
+	TotalAmount           *float64
+	PONumber              *string
+	PODate                *time.Time
+	ExchangeRate          *float64
 	PaymentPriority       *string
 	Notes                 *string
 	SupportingDocURLs     []string
@@ -392,36 +413,47 @@ type UpdateJobInput struct {
 
 // PackageInput represents input for creating a package
 type PackageInput struct {
-	PackageName  *string
-	PackageType  *string
-	Quantity     *int32
-	LengthMeters *float64
-	WidthMeters  *float64
-	HeightMeters *float64
-	WeightKg     *float64
-	VolumeCbm    *float64
-	HSCode       *string
-	CargoType    *string
-	ContainerID  *string
-	Notes        *string
+	ContainerNo               *string
+	ContainerType             *string
+	ContainerSize             *string
+	GrossWeightKg             *float64
+	NetWeightKg               *float64
+	Volume                    *float64
+	CarrierSealNo             *string
+	CommodityCargoDescription *string
+	PackageType               *string
+	CargoType                 *string
+	NoOfPackages              *float64
+	ChargeableWeight          *float64
+	HSCode                    *string
+	TemperatureControl        bool
 }
 
 // CarrierInput represents input for creating carrier information
 type CarrierInput struct {
 	CarrierPartyID         *uuid.UUID
 	CarrierName            *string
+	CarrierContact         *string
 	VesselName             *string
 	VoyageNumber           *string
 	FlightID               *string
 	FlightDate             *time.Time
+	AirportReportDate      *time.Time
 	VehicleNumber          *string
+	VehicleType            *string
 	RouteDetails           *string
 	DriverName             *string
+	DriverContact          *string
 	OriginPortStation      *string
 	DestinationPortStation *string
+	OriginCountry          *string
+	DestinationCountry     *string
 	AccountingInfo         *string
 	HandlingInfo           *string
-	SupportingDocURL       *string
+	TransportDocumentRef   *string
+	SupportingDocURLs      []string
+	FileRegion             *string
+	Description            *string
 }
 
 // DocumentInput represents input for creating a document
@@ -443,10 +475,17 @@ type BillingInput struct {
 	PONumber              *string
 	PODate                *time.Time
 	CurrencyCode          *string
-	Amount                *float64
+	Quantity              *float64
+	UnitPrice             *float64
+	AmountWithoutTax      *float64
+	TaxCode               *string
+	TaxAmount             *float64
+	ExchangeRate          *float64
+	TotalAmount           *float64
 	Description           *string
 	Notes                 *string
-	SupportingDocURL      *string
+	SupportingDocURLs     []string
+	FileRegion            *string
 	AmountPrimaryCurrency *float64
 }
 
@@ -458,10 +497,19 @@ type ProvisionInput struct {
 	InvoiceNumber         *string
 	InvoiceDate           *time.Time
 	CurrencyCode          *string
-	Amount                *float64
+	Quantity              *float64
+	UnitPrice             *float64
+	AmountWithoutTax      *float64
+	TaxCode               *string
+	TaxAmount             *float64
+	TotalAmount           *float64
+	PONumber              *string
+	PODate                *time.Time
+	ExchangeRate          *float64
 	PaymentPriority       *string
 	Notes                 *string
-	SupportingDocURL      *string
+	SupportingDocURLs     []string
+	FileRegion            *string
 	AmountPrimaryCurrency *float64
 	Profit                *float64
 }

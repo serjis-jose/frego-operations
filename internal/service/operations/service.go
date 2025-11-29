@@ -2,13 +2,11 @@ package operations
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"frego-operations/internal/common"
@@ -153,12 +151,26 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 		})
 	}
 
+	// Fetch activities
+	activityRows, err := s.repo.ListActivityLookups(ctx)
+	if err != nil {
+		logger.Error("failed to list activity lookups", slog.Any("error", err))
+		return result, fmt.Errorf("operations: list activities: %w", err)
+	}
+	for _, row := range activityRows {
+		result.Activities = append(result.Activities, operationsdto.ActivityLookup{
+			ActivityType: row.ActivityType,
+			ActivityCode: row.ActivityCode,
+		})
+	}
+
 	logger.Info("fetched operations lookups",
 		slog.Int("transport_modes", len(result.TransportModes)),
 		slog.Int("incoterms", len(result.Incoterms)),
 		slog.Int("job_statuses", len(result.JobStatuses)),
 		slog.Int("document_statuses", len(result.DocumentStatuses)),
 		slog.Int("role_details", len(result.RoleDetails)),
+		slog.Int("activities", len(result.Activities)),
 		slog.Int("branches", len(result.Branches)),
 		slog.Int("sales_executives", len(result.SalesExecutives)),
 		slog.Int("cs_executives", len(result.CSExecutives)),
@@ -413,23 +425,25 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 		return operationsdto.JobDetail{}, fmt.Errorf("operations: create job: %w", err)
 	}
 
-	// Create packages - map old field names to new schema
+	// Create packages
 	for _, pkgInput := range input.Packages {
-		// Note: Input uses old field names, we need to map to new schema
-		// For now, we'll create a minimal package with available fields
-		// TODO: Update input DTO to match new schema
 		pkgParams := sqlc.CreateJobPackageParams{
-			JobID:              job.ID,
-			ContainerNo:        repository.NullTextFromString(pkgInput.ContainerID), // Map ContainerID to ContainerNo
-			ContainerName:      repository.NullTextFromString(pkgInput.PackageName), // Map PackageName to ContainerName
-			PackageType:        repository.NullTextFromString(pkgInput.PackageType),
-			CargoType:          repository.NullTextFromString(pkgInput.CargoType),
-			GrossWeightKg:      numericFromFloat64(pkgInput.WeightKg),  // Map WeightKg to GrossWeightKg
-			Volume:             numericFromFloat64(pkgInput.VolumeCbm), // Map VolumeCbm to Volume
-			NoOfPackages:       numericFromInt32(pkgInput.Quantity),    // Map Quantity to NoOfPackages
-			HsCode:             repository.NullTextFromString(pkgInput.HSCode),
-			TemperatureControl: pgtype.Bool{Bool: false, Valid: true},
-			Actor:              pgtype.Text{String: input.CreatedBy, Valid: true},
+			JobID:                     job.ID,
+			ContainerNo:               repository.NullTextFromString(pkgInput.ContainerNo),
+			ContainerType:             repository.NullTextFromString(pkgInput.ContainerType),
+			ContainerSize:             repository.NullTextFromString(pkgInput.ContainerSize),
+			GrossWeightKg:             numericFromFloat64(pkgInput.GrossWeightKg),
+			NetWeightKg:               numericFromFloat64(pkgInput.NetWeightKg),
+			Volume:                    numericFromFloat64(pkgInput.Volume),
+			CarrierSealNo:             repository.NullTextFromString(pkgInput.CarrierSealNo),
+			CommodityCargoDescription: repository.NullTextFromString(pkgInput.CommodityCargoDescription),
+			PackageType:               repository.NullTextFromString(pkgInput.PackageType),
+			CargoType:                 repository.NullTextFromString(pkgInput.CargoType),
+			NoOfPackages:              numericFromFloat64(pkgInput.NoOfPackages),
+			ChargeableWeight:          numericFromFloat64(pkgInput.ChargeableWeight),
+			HsCode:                    repository.NullTextFromString(pkgInput.HSCode),
+			TemperatureControl:        pgtype.Bool{Bool: pkgInput.TemperatureControl, Valid: true},
+			Actor:                     pgtype.Text{String: input.CreatedBy, Valid: true},
 		}
 		_, err = s.repo.CreateJobPackage(ctx, pkgParams)
 		if err != nil {
@@ -440,21 +454,31 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 	// Create carrier
 	if input.Carrier != nil {
 		carrierParams := sqlc.CreateJobCarrierParams{
-			JobID:                  uuidToPgtype(job.ID),
-			CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
-			CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
-			VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
-			VoyageNumber:           repository.NullTextFromString(input.Carrier.VoyageNumber),
-			FlightID:               repository.NullTextFromString(input.Carrier.FlightID),
-			FlightDate:             dateFromTime(input.Carrier.FlightDate),
-			VehicleNumber:          repository.NullTextFromString(input.Carrier.VehicleNumber),
-			RouteDetails:           repository.NullTextFromString(input.Carrier.RouteDetails),
-			DriverName:             repository.NullTextFromString(input.Carrier.DriverName),
-			OriginPortStation:      repository.NullTextFromString(input.Carrier.OriginPortStation),
-			DestinationPortStation: repository.NullTextFromString(input.Carrier.DestinationPortStation),
-			AccountingInfo:         repository.NullTextFromString(input.Carrier.AccountingInfo),
-			HandlingInfo:           repository.NullTextFromString(input.Carrier.HandlingInfo),
-			Actor:                  pgtype.Text{String: input.CreatedBy, Valid: true},
+			JobID:                      uuidToPgtype(job.ID),
+			CarrierPartyID:             repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
+			CarrierName:                repository.NullTextFromString(input.Carrier.CarrierName),
+			CarrierContact:             repository.NullTextFromString(input.Carrier.CarrierContact),
+			VesselName:                 repository.NullTextFromString(input.Carrier.VesselName),
+			VoyageNumber:               repository.NullTextFromString(input.Carrier.VoyageNumber),
+			FlightID:                   repository.NullTextFromString(input.Carrier.FlightID),
+			FlightDate:                 timestampFromTime(input.Carrier.FlightDate),
+			AirportReportDate:          timestampFromTime(input.Carrier.AirportReportDate),
+			VehicleNumber:              repository.NullTextFromString(input.Carrier.VehicleNumber),
+			VehicleType:                repository.NullTextFromString(input.Carrier.VehicleType),
+			RouteDetails:               repository.NullTextFromString(input.Carrier.RouteDetails),
+			DriverName:                 repository.NullTextFromString(input.Carrier.DriverName),
+			DriverContact:              repository.NullTextFromString(input.Carrier.DriverContact),
+			OriginPortStation:          repository.NullTextFromString(input.Carrier.OriginPortStation),
+			DestinationPortStation:     repository.NullTextFromString(input.Carrier.DestinationPortStation),
+			OriginCountry:              repository.NullTextFromString(input.Carrier.OriginCountry),
+			DestinationCountry:         repository.NullTextFromString(input.Carrier.DestinationCountry),
+			AccountingInfo:             repository.NullTextFromString(input.Carrier.AccountingInfo),
+			HandlingInfo:               repository.NullTextFromString(input.Carrier.HandlingInfo),
+			TransportDocumentReference: repository.NullTextFromString(input.Carrier.TransportDocumentRef),
+			DocUrls:                    input.Carrier.SupportingDocURLs,
+			FileRegion:                 repository.NullTextFromString(input.Carrier.FileRegion),
+			Description:                repository.NullTextFromString(input.Carrier.Description),
+			Actor:                      pgtype.Text{String: input.CreatedBy, Valid: true},
 		}
 		_, err = s.repo.CreateJobCarrier(ctx, carrierParams)
 		if err != nil {
@@ -489,11 +513,19 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			ActivityCode:          repository.NullTextFromString(billInput.ActivityCode),
 			BillingPartyID:        repository.NullUUIDFromUUID(billInput.BillingPartyID),
 			PoNumber:              repository.NullTextFromString(billInput.PONumber),
-			PoDate:                dateFromTime(billInput.PODate),
+			PoDate:                timestampFromTime(billInput.PODate),
 			CurrencyCode:          repository.NullTextFromString(billInput.CurrencyCode),
-			Amount:                numericFromFloat64(billInput.Amount),
+			Quantity:              numericFromFloat64(billInput.Quantity),
+			UnitPrice:             numericFromFloat64(billInput.UnitPrice),
+			AmountWithoutTax:      numericFromFloat64(billInput.AmountWithoutTax),
+			TaxCode:               repository.NullTextFromString(billInput.TaxCode),
+			TaxAmount:             numericFromFloat64(billInput.TaxAmount),
+			ExchangeRate:          numericFromFloat64(billInput.ExchangeRate),
+			TotalAmount:           numericFromFloat64(billInput.TotalAmount),
 			Description:           repository.NullTextFromString(billInput.Description),
 			Notes:                 repository.NullTextFromString(billInput.Notes),
+			DocUrls:               billInput.SupportingDocURLs,
+			FileRegion:            repository.NullTextFromString(billInput.FileRegion),
 			AmountPrimaryCurrency: numericFromFloat64(billInput.AmountPrimaryCurrency),
 			Actor:                 pgtype.Text{String: input.CreatedBy, Valid: true},
 		}
@@ -511,11 +543,21 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 			ActivityCode:          repository.NullTextFromString(provInput.ActivityCode),
 			CostPartyID:           repository.NullUUIDFromUUID(provInput.CostPartyID),
 			InvoiceNumber:         repository.NullTextFromString(provInput.InvoiceNumber),
-			InvoiceDate:           dateFromTime(provInput.InvoiceDate),
+			InvoiceDate:           timestampFromTime(provInput.InvoiceDate),
 			CurrencyCode:          repository.NullTextFromString(provInput.CurrencyCode),
-			Amount:                numericFromFloat64(provInput.Amount),
+			Quantity:              numericFromFloat64(provInput.Quantity),
+			UnitPrice:             numericFromFloat64(provInput.UnitPrice),
+			AmountWithoutTax:      numericFromFloat64(provInput.AmountWithoutTax),
+			TaxCode:               repository.NullTextFromString(provInput.TaxCode),
+			TaxAmount:             numericFromFloat64(provInput.TaxAmount),
+			TotalAmount:           numericFromFloat64(provInput.TotalAmount),
+			PoNumber:              repository.NullTextFromString(provInput.PONumber),
+			PoDate:                timestampFromTime(provInput.PODate),
+			ExchangeRate:          numericFromFloat64(provInput.ExchangeRate),
 			PaymentPriority:       repository.NullTextFromString(provInput.PaymentPriority),
 			Notes:                 repository.NullTextFromString(provInput.Notes),
+			DocUrls:               provInput.SupportingDocURLs,
+			FileRegion:            repository.NullTextFromString(provInput.FileRegion),
 			AmountPrimaryCurrency: numericFromFloat64(provInput.AmountPrimaryCurrency),
 			Profit:                numericFromFloat64(provInput.Profit),
 			Actor:                 pgtype.Text{String: input.CreatedBy, Valid: true},
@@ -595,20 +637,25 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 		return operationsdto.JobDetail{}, fmt.Errorf("operations: update job: %w", err)
 	}
 
-	// Update packages if provided - map old field names to new schema
+	// Update packages if provided
 	for _, pkgInput := range input.Packages {
 		pkgParams := sqlc.CreateJobPackageParams{
-			JobID:              jobID,
-			ContainerNo:        repository.NullTextFromString(pkgInput.ContainerID),
-			ContainerName:      repository.NullTextFromString(pkgInput.PackageName),
-			PackageType:        repository.NullTextFromString(pkgInput.PackageType),
-			CargoType:          repository.NullTextFromString(pkgInput.CargoType),
-			GrossWeightKg:      numericFromFloat64(pkgInput.WeightKg),
-			Volume:             numericFromFloat64(pkgInput.VolumeCbm),
-			NoOfPackages:       numericFromInt32(pkgInput.Quantity),
-			HsCode:             repository.NullTextFromString(pkgInput.HSCode),
-			TemperatureControl: pgtype.Bool{Bool: false, Valid: true},
-			Actor:              pgtype.Text{String: input.ModifiedBy, Valid: true},
+			JobID:                     jobID,
+			ContainerNo:               repository.NullTextFromString(pkgInput.ContainerNo),
+			ContainerType:             repository.NullTextFromString(pkgInput.ContainerType),
+			ContainerSize:             repository.NullTextFromString(pkgInput.ContainerSize),
+			GrossWeightKg:             numericFromFloat64(pkgInput.GrossWeightKg),
+			NetWeightKg:               numericFromFloat64(pkgInput.NetWeightKg),
+			Volume:                    numericFromFloat64(pkgInput.Volume),
+			CarrierSealNo:             repository.NullTextFromString(pkgInput.CarrierSealNo),
+			CommodityCargoDescription: repository.NullTextFromString(pkgInput.CommodityCargoDescription),
+			PackageType:               repository.NullTextFromString(pkgInput.PackageType),
+			CargoType:                 repository.NullTextFromString(pkgInput.CargoType),
+			NoOfPackages:              numericFromFloat64(pkgInput.NoOfPackages),
+			ChargeableWeight:          numericFromFloat64(pkgInput.ChargeableWeight),
+			HsCode:                    repository.NullTextFromString(pkgInput.HSCode),
+			TemperatureControl:        pgtype.Bool{Bool: pkgInput.TemperatureControl, Valid: true},
+			Actor:                     pgtype.Text{String: input.ModifiedBy, Valid: true},
 		}
 		_, err = s.repo.CreateJobPackage(ctx, pkgParams)
 		if err != nil {
@@ -620,49 +667,74 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 	if input.Carrier != nil {
 		// Try to update existing carrier first
 		updateParams := sqlc.UpdateJobCarrierParams{
-			JobID:                  uuidToPgtype(jobID),
-			CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
-			CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
-			VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
-			VoyageNumber:           repository.NullTextFromString(input.Carrier.VoyageNumber),
-			FlightID:               repository.NullTextFromString(input.Carrier.FlightID),
-			FlightDate:             dateFromTime(input.Carrier.FlightDate),
-			VehicleNumber:          repository.NullTextFromString(input.Carrier.VehicleNumber),
-			RouteDetails:           repository.NullTextFromString(input.Carrier.RouteDetails),
-			DriverName:             repository.NullTextFromString(input.Carrier.DriverName),
-			OriginPortStation:      repository.NullTextFromString(input.Carrier.OriginPortStation),
-			DestinationPortStation: repository.NullTextFromString(input.Carrier.DestinationPortStation),
-			AccountingInfo:         repository.NullTextFromString(input.Carrier.AccountingInfo),
-			HandlingInfo:           repository.NullTextFromString(input.Carrier.HandlingInfo),
-			Actor:                  pgtype.Text{String: input.ModifiedBy, Valid: true},
+			JobID:                      uuidToPgtype(jobID),
+			CarrierPartyID:             repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
+			CarrierName:                repository.NullTextFromString(input.Carrier.CarrierName),
+			CarrierContact:             repository.NullTextFromString(input.Carrier.CarrierContact),
+			VesselName:                 repository.NullTextFromString(input.Carrier.VesselName),
+			VoyageNumber:               repository.NullTextFromString(input.Carrier.VoyageNumber),
+			FlightID:                   repository.NullTextFromString(input.Carrier.FlightID),
+			FlightDate:                 timestampFromTime(input.Carrier.FlightDate),
+			AirportReportDate:          timestampFromTime(input.Carrier.AirportReportDate),
+			VehicleNumber:              repository.NullTextFromString(input.Carrier.VehicleNumber),
+			VehicleType:                repository.NullTextFromString(input.Carrier.VehicleType),
+			RouteDetails:               repository.NullTextFromString(input.Carrier.RouteDetails),
+			DriverName:                 repository.NullTextFromString(input.Carrier.DriverName),
+			DriverContact:              repository.NullTextFromString(input.Carrier.DriverContact),
+			OriginPortStation:          repository.NullTextFromString(input.Carrier.OriginPortStation),
+			DestinationPortStation:     repository.NullTextFromString(input.Carrier.DestinationPortStation),
+			OriginCountry:              repository.NullTextFromString(input.Carrier.OriginCountry),
+			DestinationCountry:         repository.NullTextFromString(input.Carrier.DestinationCountry),
+			AccountingInfo:             repository.NullTextFromString(input.Carrier.AccountingInfo),
+			HandlingInfo:               repository.NullTextFromString(input.Carrier.HandlingInfo),
+			TransportDocumentReference: repository.NullTextFromString(input.Carrier.TransportDocumentRef),
+			DocUrls:                    input.Carrier.SupportingDocURLs,
+			FileRegion:                 repository.NullTextFromString(input.Carrier.FileRegion),
+			Description:                repository.NullTextFromString(input.Carrier.Description),
+			Actor:                      pgtype.Text{String: input.ModifiedBy, Valid: true},
 		}
-		_, err = s.repo.UpdateJobCarrier(ctx, updateParams)
-		if err != nil {
-			// If update fails (no rows), create new carrier
-			if errors.Is(err, pgx.ErrNoRows) {
-				createParams := sqlc.CreateJobCarrierParams{
-					JobID:                  uuidToPgtype(jobID),
-					CarrierPartyID:         repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
-					CarrierName:            repository.NullTextFromString(input.Carrier.CarrierName),
-					VesselName:             repository.NullTextFromString(input.Carrier.VesselName),
-					VoyageNumber:           repository.NullTextFromString(input.Carrier.VoyageNumber),
-					FlightID:               repository.NullTextFromString(input.Carrier.FlightID),
-					FlightDate:             dateFromTime(input.Carrier.FlightDate),
-					VehicleNumber:          repository.NullTextFromString(input.Carrier.VehicleNumber),
-					RouteDetails:           repository.NullTextFromString(input.Carrier.RouteDetails),
-					DriverName:             repository.NullTextFromString(input.Carrier.DriverName),
-					OriginPortStation:      repository.NullTextFromString(input.Carrier.OriginPortStation),
-					DestinationPortStation: repository.NullTextFromString(input.Carrier.DestinationPortStation),
-					AccountingInfo:         repository.NullTextFromString(input.Carrier.AccountingInfo),
-					HandlingInfo:           repository.NullTextFromString(input.Carrier.HandlingInfo),
-					Actor:                  pgtype.Text{String: input.ModifiedBy, Valid: true},
-				}
-				_, err = s.repo.CreateJobCarrier(ctx, createParams)
-				if err != nil {
-					logger.Warn("failed to create carrier", slog.Any("error", err))
-				}
-			} else {
+		// We need the carrier ID to update. Since we don't have it in input, we assume single carrier per job.
+		// But UpdateJobCarrier requires carrier_id.
+		// Let's fetch existing carrier first.
+		carriers, _ := s.repo.GetJobCarriers(ctx, jobID)
+		if len(carriers) > 0 {
+			updateParams.CarrierID = carriers[0].ID
+			_, err = s.repo.UpdateJobCarrier(ctx, updateParams)
+			if err != nil {
 				logger.Warn("failed to update carrier", slog.Any("error", err))
+			}
+		} else {
+			// Create new carrier
+			createParams := sqlc.CreateJobCarrierParams{
+				JobID:                      uuidToPgtype(jobID),
+				CarrierPartyID:             repository.NullUUIDFromUUID(input.Carrier.CarrierPartyID),
+				CarrierName:                repository.NullTextFromString(input.Carrier.CarrierName),
+				CarrierContact:             repository.NullTextFromString(input.Carrier.CarrierContact),
+				VesselName:                 repository.NullTextFromString(input.Carrier.VesselName),
+				VoyageNumber:               repository.NullTextFromString(input.Carrier.VoyageNumber),
+				FlightID:                   repository.NullTextFromString(input.Carrier.FlightID),
+				FlightDate:                 timestampFromTime(input.Carrier.FlightDate),
+				AirportReportDate:          timestampFromTime(input.Carrier.AirportReportDate),
+				VehicleNumber:              repository.NullTextFromString(input.Carrier.VehicleNumber),
+				VehicleType:                repository.NullTextFromString(input.Carrier.VehicleType),
+				RouteDetails:               repository.NullTextFromString(input.Carrier.RouteDetails),
+				DriverName:                 repository.NullTextFromString(input.Carrier.DriverName),
+				DriverContact:              repository.NullTextFromString(input.Carrier.DriverContact),
+				OriginPortStation:          repository.NullTextFromString(input.Carrier.OriginPortStation),
+				DestinationPortStation:     repository.NullTextFromString(input.Carrier.DestinationPortStation),
+				OriginCountry:              repository.NullTextFromString(input.Carrier.OriginCountry),
+				DestinationCountry:         repository.NullTextFromString(input.Carrier.DestinationCountry),
+				AccountingInfo:             repository.NullTextFromString(input.Carrier.AccountingInfo),
+				HandlingInfo:               repository.NullTextFromString(input.Carrier.HandlingInfo),
+				TransportDocumentReference: repository.NullTextFromString(input.Carrier.TransportDocumentRef),
+				DocUrls:                    input.Carrier.SupportingDocURLs,
+				FileRegion:                 repository.NullTextFromString(input.Carrier.FileRegion),
+				Description:                repository.NullTextFromString(input.Carrier.Description),
+				Actor:                      pgtype.Text{String: input.ModifiedBy, Valid: true},
+			}
+			_, err = s.repo.CreateJobCarrier(ctx, createParams)
+			if err != nil {
+				logger.Warn("failed to create carrier", slog.Any("error", err))
 			}
 		}
 	}
@@ -694,11 +766,19 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			ActivityCode:          repository.NullTextFromString(billInput.ActivityCode),
 			BillingPartyID:        repository.NullUUIDFromUUID(billInput.BillingPartyID),
 			PoNumber:              repository.NullTextFromString(billInput.PONumber),
-			PoDate:                dateFromTime(billInput.PODate),
+			PoDate:                timestampFromTime(billInput.PODate),
 			CurrencyCode:          repository.NullTextFromString(billInput.CurrencyCode),
-			Amount:                numericFromFloat64(billInput.Amount),
+			Quantity:              numericFromFloat64(billInput.Quantity),
+			UnitPrice:             numericFromFloat64(billInput.UnitPrice),
+			AmountWithoutTax:      numericFromFloat64(billInput.AmountWithoutTax),
+			TaxCode:               repository.NullTextFromString(billInput.TaxCode),
+			TaxAmount:             numericFromFloat64(billInput.TaxAmount),
+			ExchangeRate:          numericFromFloat64(billInput.ExchangeRate),
+			TotalAmount:           numericFromFloat64(billInput.TotalAmount),
 			Description:           repository.NullTextFromString(billInput.Description),
 			Notes:                 repository.NullTextFromString(billInput.Notes),
+			DocUrls:               billInput.SupportingDocURLs,
+			FileRegion:            repository.NullTextFromString(billInput.FileRegion),
 			AmountPrimaryCurrency: numericFromFloat64(billInput.AmountPrimaryCurrency),
 			Actor:                 pgtype.Text{String: input.ModifiedBy, Valid: true},
 		}
@@ -716,11 +796,21 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 			ActivityCode:          repository.NullTextFromString(provInput.ActivityCode),
 			CostPartyID:           repository.NullUUIDFromUUID(provInput.CostPartyID),
 			InvoiceNumber:         repository.NullTextFromString(provInput.InvoiceNumber),
-			InvoiceDate:           dateFromTime(provInput.InvoiceDate),
+			InvoiceDate:           timestampFromTime(provInput.InvoiceDate),
 			CurrencyCode:          repository.NullTextFromString(provInput.CurrencyCode),
-			Amount:                numericFromFloat64(provInput.Amount),
+			Quantity:              numericFromFloat64(provInput.Quantity),
+			UnitPrice:             numericFromFloat64(provInput.UnitPrice),
+			AmountWithoutTax:      numericFromFloat64(provInput.AmountWithoutTax),
+			TaxCode:               repository.NullTextFromString(provInput.TaxCode),
+			TaxAmount:             numericFromFloat64(provInput.TaxAmount),
+			TotalAmount:           numericFromFloat64(provInput.TotalAmount),
+			PoNumber:              repository.NullTextFromString(provInput.PONumber),
+			PoDate:                timestampFromTime(provInput.PODate),
+			ExchangeRate:          numericFromFloat64(provInput.ExchangeRate),
 			PaymentPriority:       repository.NullTextFromString(provInput.PaymentPriority),
 			Notes:                 repository.NullTextFromString(provInput.Notes),
+			DocUrls:               provInput.SupportingDocURLs,
+			FileRegion:            repository.NullTextFromString(provInput.FileRegion),
 			AmountPrimaryCurrency: numericFromFloat64(provInput.AmountPrimaryCurrency),
 			Profit:                numericFromFloat64(provInput.Profit),
 			Actor:                 pgtype.Text{String: input.ModifiedBy, Valid: true},
@@ -777,7 +867,7 @@ func packageFromSqlc(pkg sqlc.OpsPackage) operationsdto.Package {
 	return operationsdto.Package{
 		ID:                        pkg.ID,
 		ContainerNo:               common.PgtypeTextToStringPtr(pkg.ContainerNo),
-		ContainerName:             common.PgtypeTextToStringPtr(pkg.ContainerName),
+		ContainerType:             common.PgtypeTextToStringPtr(pkg.ContainerType),
 		ContainerSize:             common.PgtypeTextToStringPtr(pkg.ContainerSize),
 		GrossWeightKg:             float64FromNumeric(pkg.GrossWeightKg),
 		NetWeightKg:               float64FromNumeric(pkg.NetWeightKg),
@@ -857,7 +947,13 @@ func billingFromSqlc(b sqlc.ListJobBillingRow) operationsdto.Billing {
 		PONumber:              common.PgtypeTextToStringPtr(b.PoNumber),
 		PODate:                poDate,
 		CurrencyCode:          common.PgtypeTextToStringPtr(b.CurrencyCode),
-		Amount:                float64FromNumeric(b.Amount),
+		Quantity:              float64FromNumeric(b.Quantity),
+		UnitPrice:             float64FromNumeric(b.UnitPrice),
+		AmountWithoutTax:      float64FromNumeric(b.AmountWithoutTax),
+		TaxCode:               common.PgtypeTextToStringPtr(b.TaxCode),
+		TaxAmount:             float64FromNumeric(b.TaxAmount),
+		ExchangeRate:          float64FromNumeric(b.ExchangeRate),
+		TotalAmount:           float64FromNumeric(b.TotalAmount),
 		Description:           common.PgtypeTextToStringPtr(b.Description),
 		Notes:                 common.PgtypeTextToStringPtr(b.Notes),
 		SupportingDocURLs:     stringsFromStringArray(b.SupportingDocUrl),
@@ -871,6 +967,10 @@ func provisionFromSqlc(p sqlc.ListJobProvisionsRow) operationsdto.Provision {
 	if p.InvoiceDate.Valid {
 		invDate = &p.InvoiceDate.Time
 	}
+	var poDate *time.Time
+	if p.PoDate.Valid {
+		poDate = &p.PoDate.Time
+	}
 	return operationsdto.Provision{
 		ID:                    p.ID,
 		ActivityType:          common.PgtypeTextToStringPtr(p.ActivityType),
@@ -880,7 +980,15 @@ func provisionFromSqlc(p sqlc.ListJobProvisionsRow) operationsdto.Provision {
 		InvoiceNumber:         common.PgtypeTextToStringPtr(p.InvoiceNumber),
 		InvoiceDate:           invDate,
 		CurrencyCode:          common.PgtypeTextToStringPtr(p.CurrencyCode),
-		Amount:                float64FromNumeric(p.Amount),
+		Quantity:              float64FromNumeric(p.Quantity),
+		UnitPrice:             float64FromNumeric(p.UnitPrice),
+		AmountWithoutTax:      float64FromNumeric(p.AmountWithoutTax),
+		TaxCode:               common.PgtypeTextToStringPtr(p.TaxCode),
+		TaxAmount:             float64FromNumeric(p.TaxAmount),
+		TotalAmount:           float64FromNumeric(p.TotalAmount),
+		PONumber:              common.PgtypeTextToStringPtr(p.PoNumber),
+		PODate:                poDate,
+		ExchangeRate:          float64FromNumeric(p.ExchangeRate),
 		PaymentPriority:       common.PgtypeTextToStringPtr(p.PaymentPriority),
 		Notes:                 common.PgtypeTextToStringPtr(p.Notes),
 		SupportingDocURLs:     stringsFromStringArray(p.SupportingDocUrl),

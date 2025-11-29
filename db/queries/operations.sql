@@ -46,6 +46,14 @@ SELECT
 FROM priority_lu
 ORDER BY priority_id;
 
+-- name: ListActivityLookups :many
+SELECT
+    activity_type,
+    activity_code
+FROM activity_lu
+WHERE is_active = true
+ORDER BY activity_type, activity_code;
+
 
 
 -- ============================================================
@@ -297,7 +305,7 @@ ORDER BY created_at;
 INSERT INTO ops_package (
     job_id,
     container_no,
-    container_name,
+    container_type,
     container_size,
     gross_weight_kg,
     net_weight_kg,
@@ -316,7 +324,7 @@ INSERT INTO ops_package (
 ) VALUES (
     sqlc.arg(job_id),
     sqlc.narg(container_no),
-    sqlc.narg(container_name),
+    sqlc.narg(container_type),
     sqlc.narg(container_size),
     sqlc.narg(gross_weight_kg),
     sqlc.narg(net_weight_kg),
@@ -573,7 +581,13 @@ INSERT INTO ops_billing (
     po_number,
     po_date,
     currency_code,
-    amount,
+    quantity,
+    unit_price,
+    amount_without_tax,
+    tax_code,
+    tax_amount,
+    exchange_rate,
+    total_amount,
     description,
     notes,
     supporting_doc_url,
@@ -590,7 +604,13 @@ INSERT INTO ops_billing (
     sqlc.narg(po_number),
     sqlc.narg(po_date),
     sqlc.narg(currency_code),
-    sqlc.narg(amount),
+    sqlc.narg(quantity),
+    sqlc.narg(unit_price),
+    sqlc.narg(amount_without_tax),
+    sqlc.narg(tax_code),
+    sqlc.narg(tax_amount),
+    sqlc.narg(exchange_rate),
+    sqlc.narg(total_amount),
     sqlc.narg(description),
     sqlc.narg(notes),
     sqlc.narg(doc_urls),
@@ -624,7 +644,15 @@ INSERT INTO ops_provision (
     invoice_number,
     invoice_date,
     currency_code,
-    amount,
+    quantity,
+    unit_price,
+    amount_without_tax,
+    tax_code,
+    tax_amount,
+    total_amount,
+    po_number,
+    po_date,
+    exchange_rate,
     payment_priority,
     notes,
     supporting_doc_url,
@@ -642,7 +670,15 @@ INSERT INTO ops_provision (
     sqlc.narg(invoice_number),
     sqlc.narg(invoice_date),
     sqlc.narg(currency_code),
-    sqlc.narg(amount),
+    sqlc.narg(quantity),
+    sqlc.narg(unit_price),
+    sqlc.narg(amount_without_tax),
+    sqlc.narg(tax_code),
+    sqlc.narg(tax_amount),
+    sqlc.narg(total_amount),
+    sqlc.narg(po_number),
+    sqlc.narg(po_date),
+    sqlc.narg(exchange_rate),
     sqlc.narg(payment_priority),
     sqlc.narg(notes),
     sqlc.narg(doc_urls),

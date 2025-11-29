@@ -88,6 +88,16 @@ func (r *Repository) ListRoleDetailsLookups(ctx context.Context) ([]sqlc.ListRol
 	return rows, err
 }
 
+func (r *Repository) ListActivityLookups(ctx context.Context) ([]sqlc.ListActivityLookupsRow, error) {
+	var rows []sqlc.ListActivityLookupsRow
+	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
+		var err error
+		rows, err = q.ListActivityLookups(ctx)
+		return err
+	})
+	return rows, err
+}
+
 // ============================================================
 // JOB CRUD METHODS
 // ============================================================
