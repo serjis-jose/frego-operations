@@ -153,51 +153,6 @@ func (s *Service) GetLookups(ctx context.Context) (operationsdto.OperationsLooku
 		})
 	}
 
-	branchRows, err := s.repo.ListBranchLookups(ctx)
-	if err != nil {
-		logger.Error("failed to list branch lookups", slog.Any("error", err))
-		return result, fmt.Errorf("operations: list branches: %w", err)
-	}
-	for _, row := range branchRows {
-		result.Branches = append(result.Branches, operationsdto.BranchLookup{
-			BranchID:   row.BranchID,
-			BranchName: row.BranchName,
-			IsActive:   common.BoolValue(row.IsActive),
-		})
-	}
-
-	// Fetch sales executive lookups grouped by branch
-	salesExecRows, err := s.repo.ListSalesExecutiveLookups(ctx)
-	if err != nil {
-		logger.Error("failed to list sales executive lookups", slog.Any("error", err))
-		return result, fmt.Errorf("operations: list sales executives: %w", err)
-	}
-	for _, row := range salesExecRows {
-		exec := operationsdto.SalesExecutiveLookup{
-			SalesExecID:   row.SalesExecID,
-			SalesExecName: row.SalesExecName,
-			BranchID:      common.UUIDPtr(row.BranchID),
-			BranchName:    common.TextPtr(row.BranchName),
-		}
-		result.SalesExecutives = append(result.SalesExecutives, exec)
-	}
-
-	// Fetch CS executive lookups grouped by branch
-	csExecRows, err := s.repo.ListCSExecutiveLookups(ctx)
-	if err != nil {
-		logger.Error("failed to list cs executive lookups", slog.Any("error", err))
-		return result, fmt.Errorf("operations: list cs executives: %w", err)
-	}
-	for _, row := range csExecRows {
-		exec := operationsdto.CSExecutiveLookup{
-			CSExecID:   row.CsExecID,
-			CSExecName: row.CsExecName,
-			BranchID:   common.UUIDPtr(row.BranchID),
-			BranchName: common.TextPtr(row.BranchName),
-		}
-		result.CSExecutives = append(result.CSExecutives, exec)
-	}
-
 	logger.Info("fetched operations lookups",
 		slog.Int("transport_modes", len(result.TransportModes)),
 		slog.Int("incoterms", len(result.Incoterms)),
@@ -435,12 +390,16 @@ func (s *Service) CreateJob(ctx context.Context, input operationsdto.CreateJobIn
 		SourceState:        repository.NullTextFromString(input.SourceState),
 		SourceCountry:      repository.NullTextFromString(input.SourceCountry),
 		BranchID:           repository.NullUUIDFromUUID(input.BranchID),
+		BranchName:         repository.NullTextFromString(input.BranchName),
 		IncoTermCode:       repository.NullTextFromString(input.IncotermCode),
 		Commodity:          repository.NullTextFromString(input.Commodity),
 		Classification:     repository.NullTextFromString(input.Classification),
 		SalesExecutiveID:   repository.NullUUIDFromUUID(input.SalesExecutiveID),
+		SalesExecutiveName: repository.NullTextFromString(input.SalesExecutiveName),
 		OperationsExecID:   repository.NullUUIDFromUUID(input.OperationsExecID),
+		OperationsExecName: repository.NullTextFromString(input.OperationsExecName),
 		CsExecutiveID:      repository.NullUUIDFromUUID(input.CSExecutiveID),
+		CsExecutiveName:    repository.NullTextFromString(input.CSExecutiveName),
 		AgentDeadline:      timestampFromTime(input.AgentDeadline),
 		ShipmentReadyDate:  timestampFromTime(input.ShipmentReadyDate),
 		Status:             repository.NullTextFromString(input.Status),
@@ -613,12 +572,16 @@ func (s *Service) UpdateJob(ctx context.Context, jobID uuid.UUID, input operatio
 		SourceState:        repository.NullTextFromString(input.SourceState),
 		SourceCountry:      repository.NullTextFromString(input.SourceCountry),
 		BranchID:           repository.NullUUIDFromUUID(input.BranchID),
+		BranchName:         repository.NullTextFromString(input.BranchName),
 		IncoTermCode:       repository.NullTextFromString(input.IncotermCode),
 		Commodity:          repository.NullTextFromString(input.Commodity),
 		Classification:     repository.NullTextFromString(input.Classification),
 		SalesExecutiveID:   repository.NullUUIDFromUUID(input.SalesExecutiveID),
+		SalesExecutiveName: repository.NullTextFromString(input.SalesExecutiveName),
 		OperationsExecID:   repository.NullUUIDFromUUID(input.OperationsExecID),
+		OperationsExecName: repository.NullTextFromString(input.OperationsExecName),
 		CsExecutiveID:      repository.NullUUIDFromUUID(input.CSExecutiveID),
+		CsExecutiveName:    repository.NullTextFromString(input.CSExecutiveName),
 		AgentDeadline:      timestampFromTime(input.AgentDeadline),
 		ShipmentReadyDate:  timestampFromTime(input.ShipmentReadyDate),
 		Status:             repository.NullTextFromString(input.Status),

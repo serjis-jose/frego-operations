@@ -326,12 +326,16 @@ type CreateJobInput struct {
 	SourceState        *string
 	SourceCountry      *string
 	BranchID           *uuid.UUID
+	BranchName         *string
 	IncotermCode       *string
 	Commodity          *string
 	Classification     *string
 	SalesExecutiveID   *uuid.UUID
+	SalesExecutiveName *string
 	OperationsExecID   *uuid.UUID
+	OperationsExecName *string
 	CSExecutiveID      *uuid.UUID
+	CSExecutiveName    *string
 	AgentDeadline      *time.Time
 	ShipmentReadyDate  *time.Time
 	Status             *string
@@ -363,12 +367,16 @@ type UpdateJobInput struct {
 	SourceState        *string
 	SourceCountry      *string
 	BranchID           *uuid.UUID
+	BranchName         *string
 	IncotermCode       *string
 	Commodity          *string
 	Classification     *string
 	SalesExecutiveID   *uuid.UUID
+	SalesExecutiveName *string
 	OperationsExecID   *uuid.UUID
+	OperationsExecName *string
 	CSExecutiveID      *uuid.UUID
+	CSExecutiveName    *string
 	AgentDeadline      *time.Time
 	ShipmentReadyDate  *time.Time
 	Status             *string

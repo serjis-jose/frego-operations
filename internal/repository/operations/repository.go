@@ -88,38 +88,6 @@ func (r *Repository) ListRoleDetailsLookups(ctx context.Context) ([]sqlc.ListRol
 	return rows, err
 }
 
-func (r *Repository) ListBranchLookups(ctx context.Context) ([]sqlc.ListBranchLookupsRow, error) {
-	var rows []sqlc.ListBranchLookupsRow
-	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
-		var err error
-		rows, err = q.ListBranchLookups(ctx)
-		return err
-	})
-	return rows, err
-}
-
-func (r *Repository) ListSalesExecutiveLookups(ctx context.Context) ([]sqlc.ListSalesExecutiveLookupsRow, error) {
-	var rows []sqlc.ListSalesExecutiveLookupsRow
-	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
-		var err error
-		rows, err = q.ListSalesExecutiveLookups(ctx)
-		return err
-	})
-
-	return rows, err
-}
-
-func (r *Repository) ListCSExecutiveLookups(ctx context.Context) ([]sqlc.ListCSExecutiveLookupsRow, error) {
-	var rows []sqlc.ListCSExecutiveLookupsRow
-	err := r.withQueries(ctx, func(q *sqlc.Queries) error {
-		var err error
-		rows, err = q.ListCSExecutiveLookups(ctx)
-		return err
-	})
-
-	return rows, err
-}
-
 // ============================================================
 // JOB CRUD METHODS
 // ============================================================

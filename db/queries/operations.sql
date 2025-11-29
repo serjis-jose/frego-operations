@@ -46,33 +46,7 @@ SELECT
 FROM priority_lu
 ORDER BY priority_id;
 
--- name: ListBranchLookups :many
-SELECT
-    branch_id,
-    branch_name,
-    is_active
-FROM branch_lu
-ORDER BY branch_name;
 
--- name: ListSalesExecutiveLookups :many
-SELECT
-    sel.sales_exec_id,
-    sel.sales_exec_name,
-    sel.branch_id,
-    branch.branch_name AS branch_name
-FROM sales_executive_lu sel
-LEFT JOIN branch_lu branch ON branch.branch_id = sel.branch_id
-ORDER BY branch.branch_name NULLS LAST, sel.sales_exec_name;
-
--- name: ListCSExecutiveLookups :many
-SELECT
-    csel.cs_exec_id,
-    csel.cs_exec_name,
-    csel.branch_id,
-    branch.branch_name AS branch_name
-FROM cs_executive_lu csel
-LEFT JOIN branch_lu branch ON branch.branch_id = csel.branch_id
-ORDER BY branch.branch_name NULLS LAST, csel.cs_exec_name;
 
 -- ============================================================
 -- JOB CRUD QUERIES
@@ -155,7 +129,7 @@ SELECT
     j.source_state,
     j.source_country,
     j.branch_id,
-    branch.branch_name AS branch_name,
+    j.branch_name,
     j.inco_term_code,
     j.commodity,
     j.classification,
@@ -183,7 +157,7 @@ SELECT
 FROM ops_job j
 LEFT JOIN party_master cust ON cust.id = j.customer_id
 LEFT JOIN party_master agent ON agent.id = j.agent_id
-LEFT JOIN branch_lu branch ON branch.branch_id = j.branch_id
+
 LEFT JOIN employee_master se ON se.id = j.sales_executive_id
 LEFT JOIN employee_master oe ON oe.id = j.operations_exec_id
 LEFT JOIN employee_master ce ON ce.id = j.cs_executive_id
@@ -208,12 +182,16 @@ INSERT INTO ops_job (
     source_state,
     source_country,
     branch_id,
+    branch_name,
     inco_term_code,
     commodity,
     classification,
     sales_executive_id,
+    sales_executive_name,
     operations_exec_id,
+    operations_exec_name,
     cs_executive_id,
+    cs_executive_name,
     agent_deadline,
     shipment_ready_date,
     status,
@@ -239,12 +217,16 @@ INSERT INTO ops_job (
     sqlc.narg(source_state),
     sqlc.narg(source_country),
     sqlc.narg(branch_id),
+    sqlc.narg(branch_name),
     sqlc.narg(inco_term_code),
     sqlc.narg(commodity),
     sqlc.narg(classification),
     sqlc.narg(sales_executive_id),
+    sqlc.narg(sales_executive_name),
     sqlc.narg(operations_exec_id),
+    sqlc.narg(operations_exec_name),
     sqlc.narg(cs_executive_id),
+    sqlc.narg(cs_executive_name),
     sqlc.narg(agent_deadline),
     sqlc.narg(shipment_ready_date),
     sqlc.narg(status),
@@ -273,12 +255,16 @@ SET
     source_state = COALESCE(sqlc.narg(source_state), source_state),
     source_country = COALESCE(sqlc.narg(source_country), source_country),
     branch_id = COALESCE(sqlc.narg(branch_id), branch_id),
+    branch_name = COALESCE(sqlc.narg(branch_name), branch_name),
     inco_term_code = COALESCE(sqlc.narg(inco_term_code), inco_term_code),
     commodity = COALESCE(sqlc.narg(commodity), commodity),
     classification = COALESCE(sqlc.narg(classification), classification),
     sales_executive_id = COALESCE(sqlc.narg(sales_executive_id), sales_executive_id),
+    sales_executive_name = COALESCE(sqlc.narg(sales_executive_name), sales_executive_name),
     operations_exec_id = COALESCE(sqlc.narg(operations_exec_id), operations_exec_id),
+    operations_exec_name = COALESCE(sqlc.narg(operations_exec_name), operations_exec_name),
     cs_executive_id = COALESCE(sqlc.narg(cs_executive_id), cs_executive_id),
+    cs_executive_name = COALESCE(sqlc.narg(cs_executive_name), cs_executive_name),
     agent_deadline = COALESCE(sqlc.narg(agent_deadline), agent_deadline),
     shipment_ready_date = COALESCE(sqlc.narg(shipment_ready_date), shipment_ready_date),
     status = COALESCE(sqlc.narg(status), status),
