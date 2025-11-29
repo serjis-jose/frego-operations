@@ -66,15 +66,7 @@ CREATE TABLE IF NOT EXISTS priority_lu (
   is_active       boolean DEFAULT true
 );
 
-CREATE TABLE IF NOT EXISTS branch_lu (
-  branch_id    uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  branch_name  text NOT NULL UNIQUE,
-  created_at   timestamptz,
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
+
 
 CREATE TABLE IF NOT EXISTS document_type_lu (
   code         text PRIMARY KEY,
@@ -102,27 +94,9 @@ CREATE TABLE IF NOT EXISTS employee_master (
   is_active   boolean DEFAULT true
 );
 
-CREATE TABLE IF NOT EXISTS cs_executive_lu (
-  cs_exec_id   uuid PRIMARY KEY,
-  cs_exec_name text NOT NULL,
-  branch_id    uuid REFERENCES branch_lu(branch_id),
-  created_at   timestamptz DEFAULT now(),
-  created_by   text,
-  modified_at  timestamptz,
-  modified_by  text,
-  is_active    boolean DEFAULT true
-);
 
-CREATE TABLE IF NOT EXISTS sales_executive_lu (
-  sales_exec_id   uuid PRIMARY KEY,
-  sales_exec_name text NOT NULL,
-  branch_id       uuid REFERENCES branch_lu(branch_id),
-  created_at      timestamptz DEFAULT now(),
-  created_by      text,
-  modified_at     timestamptz,
-  modified_by     text,
-  is_active       boolean DEFAULT true
-);
+
+
 
 -- ============================================================
 --  PARTY MASTER (Soft reference - no FK to external DB)
@@ -174,13 +148,17 @@ CREATE TABLE IF NOT EXISTS ops_job (
   source_city         text,
   source_state        text,
   source_country      text,
-  branch_id           uuid REFERENCES branch_lu(branch_id),
+  branch_id           uuid,
+  branch_name         text,
   inco_term_code      text,
   commodity           text,
   classification      text,
   sales_executive_id  uuid,
+  sales_executive_name text,
   operations_exec_id  uuid,
-  cs_executive_id     uuid REFERENCES cs_executive_lu(cs_exec_id),
+  operations_exec_name text,
+  cs_executive_id     uuid,
+  cs_executive_name   text,
   agent_deadline      timestamptz,
   shipment_ready_date timestamptz,
   status              text,

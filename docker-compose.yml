@@ -39,4 +39,4 @@ services:
 networks:
   frego-net:
     external: true
-    name: frego-shared-net
+    name: frego-backend_frego-net
